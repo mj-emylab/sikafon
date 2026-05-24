@@ -1,0 +1,83 @@
+<?php namespace Tests\APIs;
+
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+use Tests\ApiTestTrait;
+use App\Models\Post;
+
+class PostApiTest extends TestCase
+{
+    use ApiTestTrait,RefreshDatabase;
+
+    /**
+     * @test
+     */
+    public function test_create_post()
+    {
+         $this->withoutExceptionHandling();
+        $post = Post::factory()->make()->toArray();
+
+        $this->response = $this->json(
+            'POST',
+            '/api/v1/posts', $post
+        );
+
+        $this->assertApiResponse($post);
+    }
+
+    /**
+     * @test
+     */
+    public function test_read_post()
+    {
+        $this->withoutExceptionHandling();
+        $post = Post::factory()->create();
+
+        $this->response = $this->json(
+            'GET',
+            '/api/v1/posts/'.$post->id
+        );
+
+        $this->assertApiResponse($post->toArray());
+    }
+
+    /**
+     * @test
+     */
+    public function test_update_post()
+    {
+        $this->withoutExceptionHandling();
+        $post = Post::factory()->create();
+        $editedPost = Post::factory()->make()->toArray();
+
+        $this->response = $this->json(
+            'PUT',
+            '/api/v1/posts/'.$post->id,
+            $editedPost
+        );
+
+        $this->assertApiResponse($editedPost);
+    }
+
+    /**
+     * @test
+     */
+    public function test_delete_post()
+    {
+        $this->withoutExceptionHandling();
+        $post = Post::factory()->create();
+
+        $this->response = $this->json(
+            'DELETE',
+             '/api/v1/posts/'.$post->id
+         );
+
+        $this->assertApiSuccess();
+        $this->response = $this->json(
+            'GET',
+            '/api/v1/posts/'.$post->id
+        );
+
+        $this->response->assertStatus(404);
+    }
+}

@@ -1,0 +1,80 @@
+[
+    {
+        "name": "id",
+        "dbType": "increments",
+        "htmlType": "",
+        "validations": "",
+        "searchable": false,
+        "fillable": false,
+        "primary": true,
+        "inForm": false,
+        "inIndex": false,
+        "inView": false
+    },
+    {
+        "name": "user_id",
+        "dbType": "integer:unsigned:default,0:foreign,users,id",
+        "htmlType": "text",
+        "relation": "1t1,User,user_id,id"
+    },
+    {
+        "name": "uuid",
+        "dbType": "string",
+        "htmlType": "text",
+        "validations": "required",
+        "searchable": true
+    },
+    {
+        "name": "payment_id",
+        "dbType": "integer:unsigned:default,0:foreign,payments,id",
+        "htmlType": "text",
+        "relation": "1t1,Payment,payment_id,id"
+    },
+    {
+        "name": "amount",
+        "dbType": "string",
+        "htmlType": "text",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "code",
+        "dbType": "string",
+        "htmlType": "text",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "session_code",
+        "dbType": "string",
+        "htmlType": "text",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "transaction_code",
+        "dbType": "string",
+        "htmlType": "text",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "type",
+        "dbType": "integer",
+        "htmlType": "number",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "status",
+        "dbType": "integer",
+        "htmlType": "number",
+        "validations": "",
+        "searchable": true
+    },
+    {
+        "name": "is_active",
+        "dbType": "boolean",
+        "htmlType": "checkbox,1"
+    }
+]

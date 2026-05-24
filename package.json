@@ -1,0 +1,43 @@
+{
+    "private": true,
+    "scripts": {
+        "dev": "npm run development",
+        "development": "mix",
+        "watch": "mix watch",
+        "watch-poll": "mix watch -- --watch-options-poll=1000",
+        "hot": "mix watch --hot",
+        "prod": "npm run production",
+        "production": "mix --production"
+    },
+    "devDependencies": {
+        "axios": "^0.21",
+        "laravel-mix": "^6.0.6",
+        "lodash": "^4.17.19",
+        "postcss": "^8.1.14",
+        "vue-loader": "^15.9.7",
+        "vue-template-compiler": "^2.6.14"
+    },
+    "dependencies": {
+        "@ianwalter/vuex-reset": "^4.3.4",
+        "moment": "^2.29.1",
+        "print-js": "^1.6.0",
+        "sweetalert2": "^10.15.6",
+        "tus-js-client": "^2.3.1",
+        "vue": "^2.6.14",
+        "vue-file-agent": "^1.7.3",
+        "vue-good-table": "^2.21.10",
+        "vue-html-to-paper": "^1.4.4",
+        "vue-loading-overlay": "^3.0.1",
+        "vue-phone-number-input": "^1.1.12",
+        "vue-router": "^3.5.2",
+        "vue-select": "^3.13.0",
+        "vue-slick-carousel": "^1.0.6",
+        "vue-slicksort": "^1.2.0",
+        "vue-tel-input": "^5.10.0",
+        "vue2-datepicker": "^3.10.4",
+        "vue2-google-maps": "^0.10.7",
+        "vuelidate": "^0.7.6",
+        "vuex": "^3.6.2",
+        "vuex-persistedstate": "^4.0.0"
+    }
+}

@@ -364,12 +364,12 @@ class AccountAPIController extends AppBaseController
                 $user->id
             )->first();
 
-            // if ($existingAccount) {
+            if ($existingAccount) {
 
-            //     return $this->sendError(
-            //         'User already has an account'
-            //     );
-            // }
+                return $this->sendError(
+                    'User already has an account'
+                );
+            }
 
             $verifiedCard = CardUser::where(
                 'card_no',

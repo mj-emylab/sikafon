@@ -30,18 +30,18 @@ use App\Jobs\DynamicMailJob;
 
 class BankingService {
 
-    // protected $baseUrl = "https://appsqa.ecobank.com/";
-    // protected $baseUrl = "https://xpresspoint.ecobank.com/";  // main
-    protected $baseUrl = "https://devtuat.ecobank.com/";   // dev
+    // protected $baseUrl = "https://appsqa.uuobank.com/";
+    // protected $baseUrl = "https://xpresspoint.uuunk.com/";  // main
+    protected $baseUrl = "https://devtuat.uuank.com/";   // dev
 
     protected $client;
     protected $logger;
 
-    protected $pin = "ECOb89b1d4779cb4de#9871785a9f0449c5a";
-    protected $sourceCode = "EGAL";
-    protected $affcode = "EGH";
-    protected $agentcode = "32643218445";
-    protected $sourceIp = "188.214.128.134";
+    protected $pin = "ECOb89#9871785a9f0449c5a";
+    protected $sourceCode = "EuuL";
+    protected $affcode = "EuuH";
+    protected $agentcode = "328445";
+    protected $sourceIp = "188.28.134";
 
     // protected $channel = "API";
     protected $channel = "MOBILE";
@@ -59,13 +59,6 @@ class BankingService {
         $requestId = $this->generateRequestId();
         $requestId = "A1903200451111434552242345680"; // to be changed
 
-        // $sendername = "TestEugene TestMiddleNAme TestLastName";
-        // $subagentcode = "90808987";
-        // $senderphone = "23324412345678";
-        // $senderaccount = "233501374526";
-        // $thirdpartyphonenumber = "";
-        // $narration = "TESTING CASH";
-        // $amount = "20.0";
 
         $sendername = $sendername;
         $subagentcode = $subagentcode;
@@ -376,7 +369,7 @@ class BankingService {
 
     public function getAccountBalance() {
         $url = $this->baseUrl . 'agencybanking/services/thirdpartyagencybanking/getbalance';
-        $url = "https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking/getbalance";
+        $url = "https://xpresspoint.uuouanu.com/agencybanking/services/thirdpartyagencybanking/getbalance";
 
         $requestId = $this->generateRequestId();
         $requestId = "A1903200451111434552242345680"; // to be changed

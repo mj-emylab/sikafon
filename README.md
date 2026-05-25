@@ -67,3 +67,13 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 
 
 https://documenter.getpostman.com/view/9576712/SzmcZJ78#abfb262c-95d8-48db-8c50-be434e378941
+
+
+
+
+
+php artisan config:clear
+php artisan cache:clear
+php artisan optimize
+
+

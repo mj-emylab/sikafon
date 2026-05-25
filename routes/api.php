@@ -53,6 +53,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('get_transactions_admin', [App\Http\Controllers\API\AccountAPIController::class, 'adminTransactions']);
     Route::get('get_logs', [App\Http\Controllers\API\AccountAPIController::class, 'events']);
 
+    Route::post('sync_new_account', [App\Http\Controllers\API\AccountAPIController::class, 'getAccount']);
+    Route::get('sync_accounts', [App\Http\Controllers\API\AccountAPIController::class, 'syncAccounts']);
+
     Route::get('make_agent/{id}', [App\Http\Controllers\API\UserAPIController::class, 'agentStatus']);
     Route::get('agent_open_account/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'openAccountAgent']);
     Route::post('agent_add_account', [App\Http\Controllers\API\AccountAPIController::class, 'addAccountAgent']);
@@ -63,6 +66,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('self_create_code', [App\Http\Controllers\API\AccountAPIController::class, 'generatePayCode']);
     Route::get('self_transactions', [App\Http\Controllers\API\AccountAPIController::class, 'myTransactions']);
     Route::get('self_account', [App\Http\Controllers\API\AccountAPIController::class, 'myAccount']);
+
+    Route::post('agent_transaction', [App\Http\Controllers\API\AccountAPIController::class, 'agentTransaction']);
+    Route::get('agent_transactions', [App\Http\Controllers\API\AccountAPIController::class, 'agentTransactions']);
+    Route::get('agent_check_account/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'agentCheckAccount']);
+    Route::get('agent_check_transaction/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'agentCheckTransaction']);
+    Route::post('agent_scan_code', [App\Http\Controllers\API\AccountAPIController::class, 'verifyQRCode']);
 
 
 

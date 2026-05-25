@@ -150,13 +150,12 @@ class EcobankPayloadService
             ],
 
             'firstname' => strtoupper($data['firstname']),
-
             'lastname' => strtoupper($data['lastname']),
 
             'middlename' =>
                 !empty($data['middlename'])
                     ? strtoupper($data['middlename'])
-                    : '',
+                    : 'NA',
 
             'dateOfBirth' =>
                 $data['dateOfBirth'],
@@ -187,8 +186,8 @@ class EcobankPayloadService
 
             'countryCode' =>
                 strtoupper($data['countryCode']),
-
-            'transactionGuid' => '',
+            
+            'transactionGuid' => $data['transactionGuid'] ?? '',
 
             'transactiontoken' => strtoupper(
                 hash(
@@ -197,7 +196,8 @@ class EcobankPayloadService
                 )
             ),
 
-            'id' => $data['id'],
+
+            // 'id' => $data['id'],
         ];
     }
 
@@ -267,20 +267,75 @@ class EcobankPayloadService
         ];
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Transaction Payload
-    |--------------------------------------------------------------------------
-    */
 
-    public function buildTransactionPayload(
-        array $data
+    public function buildSyncAccountPayload(
+        string $accountRefNo
     ): array {
 
         $requestId = (string) random_int(
             100000000,
             999999999
         );
+
+        $requestTokenUnhashed =
+            $this->affCode .
+            $requestId .
+            $this->agentCode .
+            $this->sourceCode .
+            $this->sourceIP;
+
+        $transactionTokenUnhashed =
+            $this->sourceIP .
+            $requestId .
+            $this->agentCode .
+            $this->pin;
+
+        return [
+
+            'header' => [
+
+                'affcode' => $this->affCode,
+
+                'sourceIp' => $this->sourceIP,
+
+                'agentcode' => $this->agentCode,
+
+                'channel' => $this->channel,
+
+                'sourceCode' => $this->sourceCode,
+
+                'requestId' => $requestId,
+
+                'requesttype' => 'GET_ACCOUNT',
+
+                'requestToken' => strtoupper(
+                    hash(
+                        'sha512',
+                        $requestTokenUnhashed
+                    )
+                ),
+            ],
+
+            'transactiontoken' => strtoupper(
+                hash(
+                    'sha512',
+                    $transactionTokenUnhashed
+                )
+            ),
+
+            'accountRefNo' => $accountRefNo,
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transaction Payload
+    |--------------------------------------------------------------------------
+    */
+
+    public function buildCashInPayload(array $data): array
+    {
+        $requestId = (string) random_int(100000000, 999999999);
 
         $amount = number_format(
             (float) $data['amount'],
@@ -305,64 +360,96 @@ class EcobankPayloadService
             $amount .
             $this->pin;
 
+        return [
+
+            'sendername' => $data['sendername'],
+            'senderphone' => $data['senderphone'],
+            'senderaccount' => $data['senderaccount'],
+            'thirdpartyphonenumber' => $data['thirdpartyphonenumber'],
+            'ccy' => $this->currency,
+            'narration' => $data['narration'],
+            'subagent' => $this->agentCode,
+            'amount' => $amount,
+
+            'transactiontoken' => strtoupper(
+                hash('sha512', $transactionTokenUnhashed)
+            ),
+
+            'header' => [
+                'affcode' => $this->affCode,
+                'requestId' => $requestId,
+                'requestToken' => strtoupper(
+                    hash('sha512', $requestTokenUnhashed)
+                ),
+                'sourceCode' => $this->sourceCode,
+                'sourceIp' => $this->sourceIP,
+                'channel' => $this->channel,
+                'requesttype' => 'CASH_IN',
+                'agentcode' => $this->agentCode,
+            ]
+        ];
+    }
+
+    public function buildWithdrawalPayload(array $data): array
+    {
+        $requestId = (string) random_int(100000000, 999999999);
+
+        $amount = number_format(
+            (float) $data['amount'],
+            2,
+            '.',
+            ''
+        );
+
+        $requestTokenUnhashed =
+            $this->affCode .
+            $requestId .
+            $this->agentCode .
+            $this->sourceCode .
+            $this->sourceIP;
+
+        $transactionTokenUnhashed =
+            $this->sourceIP .
+            $requestId .
+            $this->agentCode .
+            $this->currency .
+            $data['senderaccount'] .
+            $amount .
+            $this->pin;
 
         return [
 
-            'header' => [
-
-                'affcode' => $this->affCode,
-
-                'sourceIp' => $this->sourceIP,
-
-                'agentcode' => $this->agentCode,
-
-                'channel' => $this->channel,
-
-                'sourceCode' => $this->sourceCode,
-
-                'requestId' => $requestId,
-
-                'requesttype' =>
-                    $data['transactiontype'],
-
-                'requestToken' => strtoupper(
-                    hash(
-                        'sha512',
-                        $requestTokenUnhashed
-                    )
-                ),
-            ],
-
-            'amount' => $amount,
-
-            'senderaccount' =>
-                $data['senderaccount'],
+            'subagentcode' => $this->agentCode,
 
             'senderphone' =>
                 $data['senderphone'],
 
-            'thirdpartyphonenumber' =>
-                $data['thirdpartyphonenumber'],
-
-            'narration' =>
-                $data['narration'],
-
-            'subagent' => '',
-
-            'sendername' =>
-                $data['sendername'],
-
-            'transactiontype' =>
-                $data['transactiontype'],
+            'senderaccount' =>
+                $data['senderaccount'],
 
             'ccy' => $this->currency,
 
+            'amount' => (float) $amount,
+
             'transactiontoken' => strtoupper(
-                hash(
-                    'sha512',
-                    $transactionTokenUnhashed
-                )
+                hash('sha512', $transactionTokenUnhashed)
             ),
+
+            'header' => [
+                'affcode' => $this->affCode,
+                'requestId' => $requestId,
+                'requestToken' => strtoupper(
+                    hash('sha512', $requestTokenUnhashed)
+                ),
+                'sourceCode' => $this->sourceCode,
+                'sourceIp' => $this->sourceIP,
+                'channel' => $this->channel,
+
+                // IMPORTANT
+                'requesttype' => 'WITHDRAWAL',
+
+                'agentcode' => $this->agentCode,
+            ]
         ];
     }
 

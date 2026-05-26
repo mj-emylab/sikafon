@@ -155,7 +155,7 @@ class EcobankPayloadService
             'middlename' =>
                 !empty($data['middlename'])
                     ? strtoupper($data['middlename'])
-                    : 'NA',
+                    : '',
 
             'dateOfBirth' =>
                 $data['dateOfBirth'],

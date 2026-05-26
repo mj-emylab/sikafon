@@ -182,7 +182,7 @@ class AccountAPIController extends AppBaseController
                             )->format('Y-m-d'),
 
                         'identityType' =>
-                            'GHANA_CARD',
+                            'NATIONAL_ID',
 
                         'identityNo' =>
                             $verifiedCard->card_no,
@@ -461,7 +461,7 @@ class AccountAPIController extends AppBaseController
                             )->format('Y-m-d'),
 
                         'identityType' =>
-                            'GHANA_CARD',
+                            'NATIONAL_ID',
 
                         'identityNo' =>
                             $verifiedCard->card_no,

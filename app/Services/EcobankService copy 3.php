@@ -98,32 +98,42 @@ class EcobankService
         array $payload
     ): array {
 
-        try {
+        if (!file_exists(storage_path('certs/client.pem'))) {
+            throw new \Exception('client.pem missing');
+        }
 
-            Log::info('Plain Payload', [
-                'payload' => json_encode($payload),
-            ]);
+        if (!file_exists(storage_path('certs/client.key'))) {
+            throw new \Exception('client.key missing');
+        }
+
+        if (!file_exists(storage_path('certs/ecobank-ca.pem'))) {
+            throw new \Exception('client.ecobank-ca.pem missing');
+        }
+
+        try {
 
             $encrypted =
                 $this->cryptoService
                     ->encrypt($payload);
 
-            Log::info('Ecobank Secure Request', [
-                'endpoint' => $endpoint,
-                'payload' => $payload,
-                'encrypted' => $encrypted,
-            ]);
-
             $response = Http::withOptions([
 
-                // TLS 1.2
+                'cert' => storage_path(
+                    'certs/client.pem'
+                ),
+
+                'ssl_key' => storage_path(
+                    'certs/client.key'
+                ),
+
+                'verify' => storage_path(
+                    'certs/ecobank-ca.pem'
+                ),
+
                 'curl' => [
                     CURLOPT_SSLVERSION =>
                         CURL_SSLVERSION_TLSv1_2,
                 ],
-
-                // for QA/testing
-                'verify' => false,
 
             ])
             ->asJson()
@@ -147,11 +157,6 @@ class EcobankService
             $rawResponse =
                 trim($response->body());
 
-            Log::info('Raw Encrypted Response', [
-                'status' => $response->status(),
-                'body' => $rawResponse,
-            ]);
-
             if (empty($rawResponse)) {
 
                 throw new \Exception(
@@ -159,41 +164,13 @@ class EcobankService
                 );
             }
 
-            if (!$response->successful()) {
-
-                Log::error('Ecobank HTTP Error', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-
-                return [
-                    'success' => false,
-                    'status' => $response->status(),
-                    'message' => 'Ecobank request failed',
-                    'raw' => $response->body(),
-                ];
-            }
-
-            if (!base64_decode($rawResponse, true)) {
-
-                Log::error('Invalid encrypted response', [
-                    'body' => $rawResponse,
-                ]);
-
-                return [
-                    'success' => false,
-                    'message' => 'Invalid encrypted response',
-                    'raw' => $rawResponse,
-                ];
-            }
+            Log::info('Raw Encrypted Response', [
+                'body' => $rawResponse,
+            ]);
 
             $decrypted =
                 $this->cryptoService
                     ->decrypt($rawResponse);
-
-            Log::info('Decrypted Response', [
-                'response' => $decrypted,
-            ]);
 
             return [
 
@@ -226,7 +203,4 @@ class EcobankService
             ];
         }
     }
-
-
-    
 }

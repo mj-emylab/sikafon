@@ -7,12 +7,14 @@ use Illuminate\Support\Facades\Log;
 
 class EcobankService
 {
-    // private string $baseUrl = 'https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    private string $baseUrl = 'https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking';
     // private string $baseUrl = 'https://mule.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
-    private string $baseUrl = 'https://devtuat.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    // private string $baseUrl = 'https://devtuat.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
 
-    
-    public function post(
+
+
+    // dev
+    public function postTest(
         string $endpoint,
         array $payload
     ): array {
@@ -88,4 +90,63 @@ class EcobankService
             ];
         }
     }
+
+
+    // postSecure
+    public function post(
+        string $endpoint,
+        array $payload
+    ) {
+
+        $encrypted =
+            $this->cryptoService
+                ->encrypt($payload);
+
+        $response = Http::withOptions([
+
+            'cert' => storage_path(
+                'certs/client.pem'
+            ),
+
+            'ssl_key' => storage_path(
+                'certs/client.key'
+            ),
+
+            'verify' => storage_path(
+                'certs/ecobank-ca.pem'
+            ),
+
+        ])->post(
+
+            $this->baseUrl .
+            '/secure/' .
+            $endpoint,
+
+            [
+                'agentcode' => config(
+                    'services.ecobank.agentcode'
+                ),
+
+                'payload' => $encrypted,
+            ]
+        );
+
+        $decrypted =
+            $this->cryptoService
+                ->decrypt(
+                    $response->body()
+                );
+
+        return [
+            'success' => $response->successful(),
+            'status' => $response->status(),
+            'response' => $decrypted,
+            'raw' => $response->body(),
+        ];
+    }
 }
+
+
+
+
+// https://documenter.getpostman.com/view/9576712/SzmcZJ78#abfb262c-95d8-48db-8c50-be434e378941

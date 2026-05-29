@@ -119,25 +119,26 @@ class EcobankService
                 'encrypted_bytes' => strlen($encrypted),
             ]);
 
-            $response = Http::withOptions([
+            $response = Http::withoutVerifying()
+            // $response = Http::withOptions([
 
-                // TLS 1.2
-                'curl' => [
-                    CURLOPT_SSLVERSION =>
-                        CURL_SSLVERSION_TLSv1_2,
-                ],
+            //     // TLS 1.2
+            //     'curl' => [
+            //         CURLOPT_SSLVERSION =>
+            //             CURL_SSLVERSION_TLSv1_2,
+            //     ],
 
-                // for QA/testing
-                'verify' => false,
+            //     // for QA/testing
+            //     'verify' => false,
 
-                // 'connect_timeout' => 30,
-                'connect_timeout' => 120,
+            //     // 'connect_timeout' => 30,
+            //     'connect_timeout' => 120,
 
-                // 'connect_timeout' => 15,
+            //     // 'connect_timeout' => 15,
 
-                // 'timeout' => 60,
+            //     // 'timeout' => 60,
 
-            ])
+            // ])
             ->asJson()
             ->accept('text/plain')
             ->timeout(120)

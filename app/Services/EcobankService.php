@@ -114,6 +114,11 @@ class EcobankService
                 'encrypted' => $encrypted,
             ]);
 
+            Log::info('Payload Size', [
+                'plain_json_bytes' => strlen(json_encode($payload)),
+                'encrypted_bytes' => strlen($encrypted),
+            ]);
+
             $response = Http::withOptions([
 
                 // TLS 1.2

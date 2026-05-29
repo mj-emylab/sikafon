@@ -131,10 +131,11 @@ class EcobankService
                 'verify' => false,
 
                 // 'connect_timeout' => 30,
+                'connect_timeout' => 120,
 
-                'connect_timeout' => 15,
+                // 'connect_timeout' => 15,
 
-                'timeout' => 60,
+                // 'timeout' => 60,
 
             ])
             ->asJson()

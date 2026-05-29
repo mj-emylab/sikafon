@@ -8,9 +8,15 @@ class EcobankCryptoService
 
     public function __construct()
     {
+        // $this->key = hash(
+        //     'sha256',
+        //     env('ECOBANK_PIN'),
+        //     true
+        // );
+
         $this->key = hash(
             'sha256',
-            env('ECOBANK_PIN'),
+            config('services.ecobank.pin'),
             true
         );
     }

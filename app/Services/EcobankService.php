@@ -125,6 +125,8 @@ class EcobankService
                 // for QA/testing
                 'verify' => false,
 
+                'connect_timeout' => 30,
+
             ])
             ->asJson()
             ->accept('text/plain')

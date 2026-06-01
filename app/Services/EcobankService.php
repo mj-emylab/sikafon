@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Log;
 
 class EcobankService
 {
-    // private string $baseUrl = 'https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
-    private string $baseUrl = 'https://appsqa.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    private string $baseUrl = 'https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    // private string $baseUrl = 'https://appsqa.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
     // private string $baseUrl = 'https://devtuat.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
 
     protected EcobankCryptoService $cryptoService;

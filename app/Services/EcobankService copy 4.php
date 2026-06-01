@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Log;
 class EcobankService
 {
     // private string $baseUrl = 'https://xpresspoint.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
-    private string $baseUrl = 'https://appsqa.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
-    // private string $baseUrl = 'https://devtuat.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    // private string $baseUrl = 'https://appsqa.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
+    private string $baseUrl = 'https://devtuat.ecobank.com/agencybanking/services/thirdpartyagencybanking/';
 
     protected EcobankCryptoService $cryptoService;
 
@@ -133,14 +133,6 @@ class EcobankService
                 'payload' => $encrypted,
             ]);
 
-
-            $headers = [
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/json',
-            ];
-
-            Log::info('Ecobank Request Headers', $headers);
-
             $response = Http::withoutVerifying()
             // $response = Http::withOptions([
 
@@ -161,11 +153,8 @@ class EcobankService
             //     // 'timeout' => 60,
 
             // ])
-
-            ->withHeaders($headers)
-
-            // ->asJson()
-            // ->accept('text/plain')
+            ->asJson()
+            ->accept('text/plain')
             ->timeout(120)
             ->post(
 
@@ -249,6 +238,11 @@ class EcobankService
             ];
 
         } catch (\Throwable $e) {
+
+            Log::error(
+                'Ecobank Secure Error',
+                $e,
+            );
 
             Log::error(
                 'Ecobank Secure Error',

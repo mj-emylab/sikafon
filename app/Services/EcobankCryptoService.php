@@ -8,96 +8,108 @@ class EcobankCryptoService
 
     public function __construct()
     {
-        // $this->key = hash(
-        //     'sha256',
-        //     env('ECOBANK_PIN'),
-        //     true
-        // );
 
-        $this->key = hash(
-            'sha256',
-            config('services.ecobank.pin'),
-            true
-        );
+        $this->key1 = config('services.ecobank.pin');
     }
 
     public function encrypt(array $payload): string
     {
         $plaintext = json_encode($payload);
 
+        $salt = random_bytes(16);
+
         $iv = random_bytes(12);
+
+        $key = hash_pbkdf2(
+            'sha256',
+            config('services.ecobank.pin'),
+            // "123456",
+            $salt,
+            53389,
+            32,
+            true
+        );
 
         $tag = '';
 
         $ciphertext = openssl_encrypt(
             $plaintext,
             'aes-256-gcm',
-            $this->key,
+            $key,
             OPENSSL_RAW_DATA,
             $iv,
             $tag
         );
 
         if ($ciphertext === false) {
-            throw new \Exception(
-                'Encryption failed'
-            );
+            throw new \Exception('Encryption failed');
         }
 
         return base64_encode(
             $iv .
-            $tag .
-            $ciphertext
+            $salt .
+            $ciphertext .
+            $tag
         );
     }
 
-    public function decrypt(
-        string $encryptedText
-    ): array {
-
+    public function decrypt(string $encrypted)
+    {
+        // $decoded = base64_decode($encrypted);
         $decoded = base64_decode(
-            $encryptedText,
+            $encrypted,
             true
         );
 
         if ($decoded === false) {
+            throw new \Exception('Invalid base64');
+        }
+
+        if (strlen($decoded) < 44) {
             throw new \Exception(
-                'Invalid base64 response'
+                'Encrypted payload too short'
             );
         }
 
         $iv = substr($decoded, 0, 12);
 
-        $tag = substr($decoded, 12, 16);
+        $salt = substr($decoded, 12, 16);
 
-        $ciphertext = substr($decoded, 28);
+        $ciphertextWithTag = substr($decoded, 28);
+
+        $tag = substr(
+            $ciphertextWithTag,
+            -16
+        );
+
+        $ciphertext = substr(
+            $ciphertextWithTag,
+            0,
+            -16
+        );
+
+        $key = hash_pbkdf2(
+            'sha256',
+            config('services.ecobank.pin'),
+            // "123456",
+            $salt,
+            53389,
+            32,
+            true
+        );
 
         $plaintext = openssl_decrypt(
             $ciphertext,
             'aes-256-gcm',
-            $this->key,
+            $key,
             OPENSSL_RAW_DATA,
             $iv,
             $tag
         );
 
-        if ($plaintext === false) {
-            throw new \Exception(
-                'Decryption failed'
-            );
-        }
-
-        $json = json_decode(
+        return json_decode(
             $plaintext,
             true
         );
-
-        if (!is_array($json)) {
-            throw new \Exception(
-                'Invalid decrypted JSON'
-            );
-        }
-
-        return $json;
     }
 }

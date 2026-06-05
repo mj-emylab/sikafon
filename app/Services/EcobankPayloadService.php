@@ -4,6 +4,8 @@ namespace App\Services;
 
 use Illuminate\Support\Str;
 
+use Illuminate\Support\Facades\Log;
+
 class EcobankPayloadService
 {
     private string $affCode;
@@ -359,6 +361,9 @@ class EcobankPayloadService
             $data['senderaccount'] .
             $amount .
             $this->pin;
+
+        Log::info('Raw Transaction Token', $transactionTokenUnhashed);
+        
 
         return [
 

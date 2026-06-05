@@ -563,14 +563,15 @@ class AccountAPIController extends AppBaseController
                         'lastname' =>
                             $user->last_name,
 
-                        'middlename' =>
-                            $user->middle_name,
+                        // 'middlename' =>
+                        //     $user->middle_name,
 
                         // 'firstname' => $verifiedFirstName,
 
                         // 'lastname' => $verifiedLastName,
 
                         // 'middlename' => $verifiedMiddleName,
+                        'middlename' => 'AMEK',
 
                         'dateOfBirth' =>
                             Carbon::parse(

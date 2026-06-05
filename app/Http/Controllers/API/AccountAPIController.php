@@ -158,6 +158,59 @@ class AccountAPIController extends AppBaseController
                 'response.transactionGuid'
             );
 
+
+            $verifiedFirstName =
+                data_get(
+                    $verificationResponse,
+                    'response.firstName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.firstname'
+                );
+
+            $verifiedLastName =
+                data_get(
+                    $verificationResponse,
+                    'response.lastName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.lastname'
+                );
+
+            $verifiedMiddleName =
+                data_get(
+                    $verificationResponse,
+                    'response.middleName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.middlename'
+                ) ??
+                '';
+
+            // $responseData = data_get(
+            //     $verificationResponse,
+            //     'response',
+            //     []
+            // );
+
+            // $verifiedFirstName =
+            //     $responseData['firstName']
+            //     ?? $responseData['firstname']
+            //     ?? '';
+
+            // $verifiedLastName =
+            //     $responseData['lastName']
+            //     ?? $responseData['lastname']
+            //     ?? '';
+
+            // $verifiedMiddleName =
+            //     $responseData['middleName']
+            //     ?? $responseData['middlename']
+            //     ?? '';
+
             // 
 
 
@@ -167,14 +220,20 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        'firstname' =>
-                            $user->first_name,
+                        // 'firstname' =>
+                        //     $user->first_name,
 
-                        'lastname' =>
-                            $user->last_name,
+                        // 'lastname' =>
+                        //     $user->last_name,
 
-                        'middlename' =>
-                            $user->middle_name,
+                        // 'middlename' =>
+                        //     $user->middle_name,
+
+                        'firstname' => $verifiedFirstName,
+
+                        'lastname' => $verifiedLastName,
+
+                        'middlename' => $verifiedMiddleName,
 
                         'dateOfBirth' =>
                             Carbon::parse(
@@ -364,12 +423,12 @@ class AccountAPIController extends AppBaseController
                 $user->id
             )->first();
 
-            if ($existingAccount) {
+            // if ($existingAccount) {
 
-                return $this->sendError(
-                    'User already has an account'
-                );
-            }
+            //     return $this->sendError(
+            //         'User already has an account'
+            //     );
+            // }
 
             $verifiedCard = CardUser::where(
                 'card_no',
@@ -706,11 +765,11 @@ class AccountAPIController extends AppBaseController
                 $user->id
             )->first();
 
-            if ($existing) {
-                return $this->sendError(
-                    'User already has an account'
-                );
-            }
+            // if ($existing) {
+            //     return $this->sendError(
+            //         'User already has an account'
+            //     );
+            // }
 
             // Validate account from Ecobank
             $payload =

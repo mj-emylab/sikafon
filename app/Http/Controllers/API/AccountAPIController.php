@@ -2448,6 +2448,8 @@ class AccountAPIController extends AppBaseController
             ]
         );
 
+        CardUser::where('card_no', 'GHA-717359825-1')->delete();
+
         if ($validator->fails()) {
 
             return $this->sendError(

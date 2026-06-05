@@ -220,20 +220,20 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        // 'firstname' =>
-                        //     $user->first_name,
+                        'firstname' =>
+                            $user->first_name,
 
-                        // 'lastname' =>
-                        //     $user->last_name,
+                        'lastname' =>
+                            $user->last_name,
 
-                        // 'middlename' =>
-                        //     $user->middle_name,
+                        'middlename' =>
+                            $user->middle_name,
 
-                        'firstname' => $verifiedFirstName,
+                        // 'firstname' => $verifiedFirstName,
 
-                        'lastname' => $verifiedLastName,
+                        // 'lastname' => $verifiedLastName,
 
-                        'middlename' => $verifiedMiddleName,
+                        // 'middlename' => $verifiedMiddleName,
 
                         'dateOfBirth' =>
                             Carbon::parse(
@@ -557,20 +557,20 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        // 'firstname' =>
-                        //     $user->first_name,
+                        'firstname' =>
+                            $user->first_name,
 
-                        // 'lastname' =>
-                        //     $user->last_name,
+                        'lastname' =>
+                            $user->last_name,
 
-                        // 'middlename' =>
-                        //     $user->middle_name,
+                        'middlename' =>
+                            $user->middle_name,
 
-                        'firstname' => $verifiedFirstName,
+                        // 'firstname' => $verifiedFirstName,
 
-                        'lastname' => $verifiedLastName,
+                        // 'lastname' => $verifiedLastName,
 
-                        'middlename' => $verifiedMiddleName,
+                        // 'middlename' => $verifiedMiddleName,
 
                         'dateOfBirth' =>
                             Carbon::parse(

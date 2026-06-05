@@ -10,6 +10,47 @@ use App\Services\EcobankPayloadService;
 use App\Services\EcobankService;
 
 
+// use App\Services\EcobankCryptoService;
+// Route::get('/test-decrypt', function (
+//     EcobankCryptoService $cryptoService
+// ) {
+
+//     $encrypted = "C2Q37s/nY2twu1TBa/9bBKlcPkpAed0ZnfN5q2rcVErD/06bljIHk40iuM+udsVHRAkjo1mbgLUd33Hdz9GQwS/CqKQC76TyIB7+MOqaMm9VTStjxxjGpNmwjEIPBP0BSJ1dAD05d/iKWVPvddoELiAbAgIMCxwvBtCPaw7b/6hE+7SXY7mWvAzT2Lcof47IUnRJ/TTbUy/pn7a9idJLA+ed+5xfHabGP/Q1XMD1wE4n824iWjhYJPo+VyTTCWm6PyFpZ4n9jmjV2iIvx4X60u/eBmSCvW4lhGL821ovnXxKbu7da35ebOKwe4iTfd5R41dSBBGrvqCGNidOPzoAZl4HxCRF/o5ZyZ5893SB0piVkLVJHk+NIXHlh+KxQMd9xAad/S07+WU8W8CXXfwwOo1RTU0h/rVkh5v97BkI2d36G1usGyZPRwDVzJhRwGoLTIALf1aRBDcVon2OuEYuA/ZZTCORvaM5d1/eZ6slvh9F+qRTkRU4/gmsXyLTHA3t12MVQDvhkqtqt52ez0g9mSkd7Sx8q4s4zeGfAIvOS1fWd7J0Zf1jtVEuzyTAAbWwH5pXU/JQwkxkQLZqNY0IencTwE7DpIHWtHcP9zy20jOGG61HzXDxEnlMNemXDZkGwmoKrh8JxE74nO+R5hKuxQmchgGUGNBM/wq1lRmRsG9j8NOwQNYiFyX0z166rT1dQoUMcWo=";
+
+//     return $cryptoService->decrypt1($encrypted);
+// });
+
+
+
+use App\Services\EcobankCryptoService;
+
+
+Route::get('/test-decrypt', function (
+    EcobankCryptoService $cryptoService
+) {
+    try {
+
+        $encrypted = "C2Q37s/nY2twu1TBa/9bBKlcPkpAed0ZnfN5q2rcVErD/06bljIHk40iuM+udsVHRAkjo1mbgLUd33Hdz9GQwS/CqKQC76TyIB7+MOqaMm9VTStjxxjGpNmwjEIPBP0BSJ1dAD05d/iKWVPvddoELiAbAgIMCxwvBtCPaw7b/6hE+7SXY7mWvAzT2Lcof47IUnRJ/TTbUy/pn7a9idJLA+ed+5xfHabGP/Q1XMD1wE4n824iWjhYJPo+VyTTCWm6PyFpZ4n9jmjV2iIvx4X60u/eBmSCvW4lhGL821ovnXxKbu7da35ebOKwe4iTfd5R41dSBBGrvqCGNidOPzoAZl4HxCRF/o5ZyZ5893SB0piVkLVJHk+NIXHlh+KxQMd9xAad/S07+WU8W8CXXfwwOo1RTU0h/rVkh5v97BkI2d36G1usGyZPRwDVzJhRwGoLTIALf1aRBDcVon2OuEYuA/ZZTCORvaM5d1/eZ6slvh9F+qRTkRU4/gmsXyLTHA3t12MVQDvhkqtqt52ez0g9mSkd7Sx8q4s4zeGfAIvOS1fWd7J0Zf1jtVEuzyTAAbWwH5pXU/JQwkxkQLZqNY0IencTwE7DpIHWtHcP9zy20jOGG61HzXDxEnlMNemXDZkGwmoKrh8JxE74nO+R5hKuxQmchgGUGNBM/wq1lRmRsG9j8NOwQNYiFyX0z166rT1dQoUMcWo=";
+
+        return $cryptoService->decrypt1($encrypted);
+
+        Log::info('Test Decrypt Result', [
+            'result' => $result,
+        ]);
+
+        return response()->json($result);
+
+    } catch (\Throwable $e) {
+
+        Log::error('Test Decrypt Error', [
+            'message' => $e->getMessage(),
+        ]);
+
+        throw $e;
+    }
+});
+
+
 Route::get('/test-validate-id', function (
 
     EcobankPayloadService $payloadService,

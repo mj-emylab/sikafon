@@ -53,6 +53,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('get_transactions_admin', [App\Http\Controllers\API\AccountAPIController::class, 'adminTransactions']);
     Route::get('get_logs', [App\Http\Controllers\API\AccountAPIController::class, 'events']);
 
+    Route::get('get_cards', [App\Http\Controllers\API\AccountAPIController::class, 'getCards']);
+    Route::get('delete_card/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'deleteCard']);
+    Route::put('edit_user/{id}', [App\Http\Controllers\API\UserAPIController::class, 'editUser']);
+    Route::get('delete_account/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'deleteAccountUser']);
+    Route::get('delete_user/{id}', [App\Http\Controllers\API\UserAPIController::class, 'deleteUser']);
+
     Route::post('sync_new_account', [App\Http\Controllers\API\AccountAPIController::class, 'getAccount']);
     Route::get('sync_accounts', [App\Http\Controllers\API\AccountAPIController::class, 'syncAccounts']);
 

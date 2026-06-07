@@ -333,10 +333,18 @@ class AccountAPIController extends AppBaseController
                 'user_id' =>
                     $user->id,
 
-                'name' =>
-                    $user->first_name .
-                    ' ' .
+                // 'name' =>
+                //     $user->first_name .
+                //     ' ' .
+                //     $user->last_name,
+
+                'name' => collect([
                     $user->last_name,
+                    $user->middle_name,
+                    $user->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
 
                 'phone' =>
                     $user->phone,
@@ -423,12 +431,12 @@ class AccountAPIController extends AppBaseController
                 $user->id
             )->first();
 
-            // if ($existingAccount) {
+            if ($existingAccount) {
 
-            //     return $this->sendError(
-            //         'User already has an account'
-            //     );
-            // }
+                return $this->sendError(
+                    'User already has an account'
+                );
+            }
 
             $verifiedCard = CardUser::where(
                 'card_no',
@@ -563,15 +571,15 @@ class AccountAPIController extends AppBaseController
                         'lastname' =>
                             $user->last_name,
 
-                        // 'middlename' =>
-                        //     $user->middle_name,
+                        'middlename' =>
+                            $user->middle_name,
 
                         // 'firstname' => $verifiedFirstName,
 
                         // 'lastname' => $verifiedLastName,
 
                         // 'middlename' => $verifiedMiddleName,
-                        'middlename' => 'AMEK',
+                        // 'middlename' => 'AMEK',
 
                         'dateOfBirth' =>
                             Carbon::parse(
@@ -671,10 +679,18 @@ class AccountAPIController extends AppBaseController
                 'user_id' =>
                     $user->id,
 
-                'name' =>
-                    $user->first_name .
-                    ' ' .
+                // 'name' =>
+                //     $user->first_name .
+                //     ' ' .
+                //     $user->last_name,
+
+                'name' => collect([
                     $user->last_name,
+                    $user->middle_name,
+                    $user->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
 
                 'phone' =>
                     $user->phone,
@@ -851,10 +867,18 @@ class AccountAPIController extends AppBaseController
 
                 'qrcode_id' => $code->id,
 
-                'name' =>
-                    $user->last_name .
-                    ' ' .
+                // 'name' =>
+                //     $user->last_name .
+                //     ' ' .
+                //     $user->first_name,
+                
+                'name' => collect([
+                    $user->last_name,
+                    $user->middle_name,
                     $user->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
 
                 'phone' => $user->phone,
 
@@ -1044,10 +1068,18 @@ class AccountAPIController extends AppBaseController
 
                 'qrcode_id' => $code->id,
 
-                'name' =>
-                    $user->last_name .
-                    ' ' .
+                // 'name' =>
+                //     $user->last_name .
+                //     ' ' .
+                //     $user->first_name,
+
+                'name' => collect([
+                    $user->last_name,
+                    $user->middle_name,
                     $user->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
 
                 'phone' => $user->phone,
 
@@ -2124,6 +2156,115 @@ class AccountAPIController extends AppBaseController
     }
 
 
+
+
+
+    public function getCards(Request $request)
+    {
+        $query =  CardUser::with('user');
+
+
+        /* ----------------------------------------------------------
+            1. SEARCH KEYWORD
+        ----------------------------------------------------------- */
+        if ($request->filled('keyword')) {
+            $keyword = $request->keyword;
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('first_name', 'like', "%{$keyword}%")
+                    ->orWhere('last_name', 'like', "%{$keyword}%");
+            });
+
+        }
+
+
+        /* ----------------------------------------------------------
+            5. SORTING
+        ----------------------------------------------------------- */
+        if ($request->filled('sort')) {
+            switch ($request->sort) {
+                case 'newest':
+                    $query->orderBy('created_at', 'desc');
+                    break;
+                case 'oldest':
+                    $query->orderBy('created_at', 'asc');
+                    break;
+                case 'price_asc':
+                    $query->orderBy('amount', 'asc');
+                    break;
+                case 'price_desc':
+                    $query->orderBy('amount', 'desc');
+                    break;
+                default:
+                    $query->latest();
+            }
+        } else {
+            $query->orderBy('created_at', 'desc');
+        }
+
+        /* ----------------------------------------------------------
+            6. PAGINATION
+        ----------------------------------------------------------- */
+        $limit = $request->get('limit', 20);
+        $data = $query->paginate($limit);
+
+
+        /* ----------------------------------------------------------
+            7. RESPONSE
+        ----------------------------------------------------------- */
+        return response()->json([
+            'success' => true,
+            'message' => 'Data retrieved successfully',
+            'data' => $data,
+            'meta' => [
+                'current_page' => $data->currentPage(),
+                'last_page' => $data->lastPage(),
+                'total' => $data->total(),
+                'per_page' => $data->perPage(),
+                'from' => $data->firstItem(),
+                'to' => $data->lastItem(),
+            ]
+        ]);
+    }
+
+    public function deleteCard($id)
+    {
+        $card = CardUser::find($id);
+
+        if (empty($card)) {
+
+            return $this->sendError(
+                'Verification not found'
+            );
+        }
+
+        $card->delete();
+
+        return $this->sendSuccess('Verification deleted successfully');
+
+    }
+
+    public function deleteAccountUser($id)
+    {
+        $accountUser = AccountUser::find($id);
+
+        if (empty($accountUser)) {
+
+            return $this->sendError(
+                'Account not found'
+            );
+        }
+
+        $accountUser->delete();
+
+        return $this->sendSuccess('Account deleted successfully');
+
+    }
+
+
+
+
+
     public function userTransaction(Request $request)
     {
         $validator = Validator::make(
@@ -2449,8 +2590,6 @@ class AccountAPIController extends AppBaseController
             ]
         );
 
-        CardUser::where('card_no', 'GHA-717359825-1')->delete();
-
         if ($validator->fails()) {
 
             return $this->sendError(
@@ -2531,6 +2670,8 @@ class AccountAPIController extends AppBaseController
             // if ($apiFirstName !== $userFirstName || $apiLastName !== $userLastName) {
             //     return $this->sendError("Name mismatch between ID and provided details");
             // }
+
+            CardUser::where('card_no', $request->card_no)->delete();
 
             $verification = CardUser::create([
 

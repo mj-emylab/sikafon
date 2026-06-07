@@ -529,6 +529,7 @@ class UserAPIController extends AppBaseController
     public function users(Request $request)
     {
         // $query =  User::with('user')->where('user_type', 0);
+        // $query =  User::whereIn('user_type', [0, 1, 2, 3]);
         $query =  User::where('user_type', 0);
 
 
@@ -661,6 +662,74 @@ class UserAPIController extends AppBaseController
                 'to' => $data->lastItem(),
             ]
         ]);
+    }
+
+
+    public function deleteUser($id)
+    {
+        $user = User::find($id);
+
+        if (empty($user)) {
+
+            return $this->sendError(
+                'User not found'
+            );
+        }
+
+        $user->delete();
+
+        return $this->sendSuccess('User deleted successfully');
+
+    }
+
+    public function editUser(Request $request, $id)
+    {
+
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string',
+            'last_name' => 'required|string',
+            'middle_name' => 'nullable|string',
+            'email' => 'required|email|unique:users,email,' . $id,
+            'phone' => 'required|unique:users,phone,' . $id,
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        $user = auth()->user();
+
+        if (!$user) {
+            return $this->sendError('Authentication required', 401);
+        }
+
+        $check = User::find($id);
+
+        if (!$check) {
+            return $this->sendError('User not found');
+        }
+
+        $check->first_name = ucwords($request->first_name);
+        $check->middle_name = $request->middle_name
+            ? ucwords($request->middle_name)
+            : null;
+        $check->last_name = ucwords($request->last_name);
+
+        $check->email = strtolower($request->email);
+        $check->phone = $request->phone;
+
+        $check->save();
+
+        Log::create([
+            'user_id' => Auth::id(),
+            'logable_type' => User::class,
+            'logable_id' => $check->id,
+            'about' => 'User profile updated',
+        ]);
+
+        return $this->sendSuccess('Data updated successfully');
     }
 
 

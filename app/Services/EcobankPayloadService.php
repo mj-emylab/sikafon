@@ -363,7 +363,7 @@ class EcobankPayloadService
             $amount .
             $this->pin;
 
-        Log::info("Raw Transaction Token: {$transactionTokenUnhashed}");
+        // Log::info("Raw Transaction Token: {$transactionTokenUnhashed}");
         // Log::info('Raw Transaction Token', [
         //     'value' => $transactionTokenUnhashed,
         // ]);

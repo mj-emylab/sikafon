@@ -566,15 +566,16 @@ class AccountAPIController extends AppBaseController
                     ->buildCreateAccountPayload([
 
                         // if middle name
-                        'firstname' => $user->first_name.' '.$user->middle_name,
-                        'lastname' => $user->last_name,
-                        'middlename' => $user->middle_name,
+                        // 'firstname' => $user->first_name.' '.$user->middle_name,
+                        // 'lastname' => $user->last_name,
+                        // 'middlename' => $user->middle_name,
                         // 'middlename' => null,
 
 
-                        // 'firstname' => $user->first_name,
-                        // 'lastname' => $user->last_name,
-                        // 'middlename' => $user->middle_name,
+                        // normal
+                        'firstname' => $user->first_name,
+                        'lastname' => $user->last_name,
+                        'middlename' => $user->middle_name,
 
 
                         // 'firstname' => $verifiedFirstName,

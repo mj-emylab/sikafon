@@ -565,9 +565,10 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        'firstname' => $user->middle_name,
+                        'firstname' => $user->first_name.' '.$user->middle_name,
                         'lastname' => $user->last_name,
-                        'middlename' => $user->first_name,
+                        'middlename' => $user->middle_name,
+                        'middlename' => null,
 
                         // 'firstname' => $user->first_name,
                         // 'lastname' => $user->last_name,

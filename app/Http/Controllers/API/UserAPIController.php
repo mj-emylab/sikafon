@@ -678,6 +678,16 @@ class UserAPIController extends AppBaseController
 
         $user->delete();
 
+        // Log user activity
+        $newLog = Log::create([
+            'user_id' =>  Auth::id(),
+            // 'app_id' => 'integer',
+            'logable_type' => 'App\Models\User',
+            'logable_id' => $user->id,
+            'about' => 'User deleted',
+            
+        ]);
+
         return $this->sendSuccess('User deleted successfully');
 
     }

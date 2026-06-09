@@ -220,20 +220,20 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        'firstname' =>
-                            $user->first_name,
+                        // 'firstname' =>
+                        //     $user->first_name,
 
-                        'lastname' =>
-                            $user->last_name,
+                        // 'lastname' =>
+                        //     $user->last_name,
 
-                        'middlename' =>
-                            $user->middle_name,
+                        // 'middlename' =>
+                        //     $user->middle_name,
 
-                        // 'firstname' => $verifiedFirstName,
 
-                        // 'lastname' => $verifiedLastName,
-
-                        // 'middlename' => $verifiedMiddleName,
+                        'firstname' => $verifiedFirstName,
+                        'lastname' => $verifiedLastName,
+                        'middlename' => $verifiedMiddleName,
+                        
 
                         'dateOfBirth' =>
                             Carbon::parse(
@@ -565,22 +565,14 @@ class AccountAPIController extends AppBaseController
                 $this->payloadService
                     ->buildCreateAccountPayload([
 
-                        // if middle name
-                        // 'firstname' => $user->first_name.' '.$user->middle_name,
+                        // 'firstname' => $user->first_name,
                         // 'lastname' => $user->last_name,
                         // 'middlename' => $user->middle_name,
-                        // 'middlename' => null,
 
 
-                        // normal
-                        'firstname' => $user->first_name,
-                        'lastname' => $user->last_name,
-                        'middlename' => $user->middle_name,
-
-
-                        // 'firstname' => $verifiedFirstName,
-                        // 'lastname' => $verifiedLastName,
-                        // 'middlename' => $verifiedMiddleName,
+                        'firstname' => $verifiedFirstName,
+                        'lastname' => $verifiedLastName,
+                        'middlename' => $verifiedMiddleName,
 
                         'dateOfBirth' =>
                             Carbon::parse(
@@ -783,11 +775,11 @@ class AccountAPIController extends AppBaseController
                 $user->id
             )->first();
 
-            // if ($existing) {
-            //     return $this->sendError(
-            //         'User already has an account'
-            //     );
-            // }
+            if ($existing) {
+                return $this->sendError(
+                    'User already has an account'
+                );
+            }
 
             // Validate account from Ecobank
             $payload =
@@ -2241,6 +2233,13 @@ class AccountAPIController extends AppBaseController
 
         $card->delete();
 
+        LogModel::create([
+            'user_id' => Auth::id(),
+            'logable_type' => CardUser::class,
+            'logable_id' => $card->id,
+            'about' => 'Card verification deleted',
+        ]);
+
         return $this->sendSuccess('Verification deleted successfully');
 
     }
@@ -2257,6 +2256,13 @@ class AccountAPIController extends AppBaseController
         }
 
         $accountUser->delete();
+
+        LogModel::create([
+            'user_id' => Auth::id(),
+            'logable_type' => AccountUser::class,
+            'logable_id' => $accountUser->id,
+            'about' => 'Account deleted',
+        ]);
 
         return $this->sendSuccess('Account deleted successfully');
 
@@ -2795,6 +2801,592 @@ class AccountAPIController extends AppBaseController
             $transaction,
             'Transaction retrieved successfully'
         );
+    }
+
+
+
+
+    // transfer or payout
+    public function aiTransfer(Request $request)
+    {
+        $agent = auth()->user();
+
+        DB::beginTransaction();
+
+        try {
+
+            $validator = Validator::make($request->all(), [
+                'amount' => 'required|numeric|min:1',
+                'senderaccount' => 'required',
+                'receiveraccount' => 'required',
+                'code' => 'required',
+                'trans' => 'required',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->sendError(
+                    $validator->errors()->first()
+                );
+            }
+
+            $accountUser = AccountUser::where(
+                'account_no',
+                $request->senderaccount
+            )->first();
+
+            if (!$accountUser) {
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Account not found'
+                );
+            }
+
+            $accountUserTo = AccountUser::where(
+                'account_no',
+                $request->receiveraccount
+            )->first();
+
+            if (!$accountUserTo) {
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Receiver account not found'
+                );
+            }
+
+            $code = Code::where(
+                'code',
+                $request->code
+            )
+            ->where(
+                'codeable_type',
+                'App\Models\Payment'
+            )
+            ->where(
+                'user_id',
+                $accountUser->user_id
+            )
+            ->first();
+
+            if (!$code) {
+                return $this->sendError(
+                    'Code not found'
+                );
+            }
+
+            if (
+                Carbon::now()->greaterThan(
+                    $code->expired_at
+                )
+            ) {
+                return $this->sendError(
+                    'Sorry the code has expired'
+                );
+            }
+
+            $amount = number_format(
+                (float) $request->amount,
+                2,
+                '.',
+                ''
+            );
+
+            /**
+            * WITHDRAWAL
+            */
+            $withdrawPayload = $this->payloadService
+                ->buildWithdrawalPayload([
+                    'amount' => $request->amount,
+                    'senderaccount' => $request->senderaccount,
+                    'senderphone' => $accountUser->phone,
+                ]);
+
+            $withdrawResponse = $this->ecobankService
+                ->post('withdrawal', $withdrawPayload);
+
+            if (!data_get($withdrawResponse, 'success')) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $withdrawResponse,
+                        'message',
+                        'Withdrawal failed'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $withdrawResponse,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $withdrawResponse,
+                        'response.header.responsemessage',
+                        'Withdrawal failed'
+                    )
+                );
+            }
+
+            $withdrawPayment = Payment::create([
+                'user_id' => $accountUser->user_id,
+                'code_id' => $code->id,
+                'qrcode_id' => $code->id,
+                'amount' => $amount,
+            ]);
+
+            $withdrawTransaction = Transaction::create([
+                'user_id' => $accountUser->user_id,
+                'amount' => $amount,
+
+                'code' => $code->code,
+
+                'session_code' => data_get(
+                    $withdrawResponse,
+                    'response.header.requestId'
+                ),
+
+                'transaction_code' => data_get(
+                    $withdrawResponse,
+                    'response.cbareferenceno'
+                ),
+
+                'payment_id' => $withdrawPayment->id,
+
+                'type' => 1, // withdrawal
+            ]);
+
+            LogModel::create([
+                'user_id' => $agent?->id,
+                'logable_type' => Transaction::class,
+                'logable_id' => $withdrawTransaction->id,
+                'about' => 'AI transfer withdrawal transaction',
+            ]);
+
+            /**
+            * CASH IN
+            */
+            $cashInPayload = $this->payloadService
+                ->buildCashInPayload([
+                    'amount' => $request->amount,
+                    'senderaccount' => $request->senderaccount,
+                    'senderphone' => $accountUser->phone,
+
+                    // verify with Ecobank docs
+                    'thirdpartyphonenumber' => $accountUserTo->phone,
+
+                    'sendername' => $accountUser->name,
+                    'narration' => 'Cash In Transaction',
+                ]);
+
+            $cashInResponse = $this->ecobankService
+                ->post('cashin', $cashInPayload);
+
+            if (!data_get($cashInResponse, 'success')) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $cashInResponse,
+                        'message',
+                        'Cash in failed'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $cashInResponse,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $cashInResponse,
+                        'response.header.responsemessage',
+                        'Cash in failed'
+                    )
+                );
+            }
+
+            $cashInPayment = Payment::create([
+                'user_id' => $accountUserTo->user_id,
+                'code_id' => $code->id,
+                'qrcode_id' => $code->id,
+                'amount' => $amount,
+            ]);
+
+            $cashInTransaction = Transaction::create([
+                'user_id' => $accountUserTo->user_id,
+                'amount' => $amount,
+
+                'code' => $code->code,
+
+                'session_code' => data_get(
+                    $cashInResponse,
+                    'response.header.requestId'
+                ),
+
+                'transaction_code' => data_get(
+                    $cashInResponse,
+                    'response.cbareferenceno'
+                ),
+
+                'payment_id' => $cashInPayment->id,
+
+                'type' => 0, // cash in
+            ]);
+
+            LogModel::create([
+                'user_id' => $agent?->id,
+                'logable_type' => Transaction::class,
+                'logable_id' => $cashInTransaction->id,
+                'about' => 'AI transfer cash in transaction',
+            ]);
+
+            $code->delete();
+
+            DB::commit();
+
+            return $this->sendResponse(
+                [
+                    'withdrawal' => [
+                        'payment' => new PaymentResource($withdrawPayment),
+                        'transaction' => $withdrawTransaction,
+                        'ecobank' => $withdrawResponse['response'],
+                    ],
+
+                    'cashin' => [
+                        'payment' => new PaymentResource($cashInPayment),
+                        'transaction' => $cashInTransaction,
+                        'ecobank' => $cashInResponse['response'],
+                    ],
+                ],
+                'Transaction successful'
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    // voice auth
+    public function voiceAuth(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'voiceCode' => 'required|string',
+            'voicePin1' => 'required|string|different:voicePin2',
+            'voicePin2' => 'required|string',
+            'identifier' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        $check = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)
+            ->first();
+
+        if (!$check) {
+            return $this->sendError(
+                'User not found'
+            );
+        }
+
+        $account = AccountUser::where(
+            'user_id',
+            $check->id
+        )->first();
+
+        if (!$account) {
+            return $this->sendError(
+                'Account not found'
+            );
+        }
+
+
+        $windowMinutes = 30;
+        $maxAttempts = 5;
+
+        $failedAttempts = LogModel::where('user_id', $check->id)
+            ->where('logable_type', AccountUser::class)
+            ->where('logable_id', $account->id)
+            ->whereIn('about', [
+                'Invalid voice code',
+                'User voice auth failed',
+            ])
+            ->where('created_at', '>=', Carbon::now()->subMinutes($windowMinutes))
+            ->count();
+
+        if ($failedAttempts >= $maxAttempts) {
+            return $this->sendError(
+                'Voice authentication temporarily blocked due to multiple failed attempts'
+            );
+        }
+
+
+
+        $decrypted = Helpers::decryptVoiceData(
+            $account->about,
+            strtolower(trim($request->voiceCode))
+        );
+
+        if (!$decrypted) {
+
+            LogModel::create([
+                'user_id' => $check->id,
+                'logable_type' => AccountUser::class,
+                'logable_id' => $account->id,
+                'about' => 'Invalid voice code',
+            ]);
+
+            return $this->sendError(
+                'Authentication failed'
+            );
+        }
+
+        $storedPins = array_map(
+            fn ($pin) => strtolower(trim($pin)),
+            explode(',', $decrypted)
+        );
+
+        $pin1 = strtolower(trim($request->voicePin1));
+        $pin2 = strtolower(trim($request->voicePin2));
+
+        $passed =
+            in_array($pin1, $storedPins) &&
+            in_array($pin2, $storedPins);
+
+        if (!$passed) {
+
+            LogModel::create([
+                'user_id' => $check->id,
+                'logable_type' => AccountUser::class,
+                'logable_id' => $account->id,
+                'about' => 'User voice auth failed',
+            ]);
+
+            return $this->sendError(
+                'Authentication failed'
+            );
+        }
+
+        try {
+
+            Code::where(
+                'user_id',
+                $check->id
+            )
+            ->where(
+                'codeable_type',
+                'App\Models\Payment'
+            )
+            ->delete();
+
+            $verificationCode =
+                Helpers::generateVerificationCode();
+
+            $qrCodeResult =
+                Helpers::generateQRCode(
+                    $verificationCode
+                );
+
+            if (!$qrCodeResult['success']) {
+
+                return $this->sendError(
+                    'Failed to generate QR code'
+                );
+            }
+
+            $code = Code::create([
+                'user_id' => $check->id,
+                'code' => $verificationCode,
+                'url' => 'storage/codes/' .
+                    basename(
+                        $qrCodeResult['file_path']
+                    ),
+                'codeable_type' =>
+                    'App\Models\Payment',
+                'expired_at' =>
+                    Carbon::now()->addMinutes(2),
+            ]);
+
+            LogModel::create([
+                'user_id' => $check->id,
+                'logable_type' => AccountUser::class,
+                'logable_id' => $account->id,
+                'about' => 'User voice auth passed',
+            ]);
+
+            return $this->sendResponse(
+                $code,
+                'QR code generated successfully'
+            );
+
+        } catch (\Throwable $e) {
+
+            Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+
+    // add voice auth
+    public function addVoiceAuth(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'voicePin1' => 'required|string',
+            'voicePin2' => 'required|string|different:voicePin1',
+            'voicePin3' => 'required|string|different:voicePin1|different:voicePin2',
+            'voiceCode' => 'required|string',
+            'identifier' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        $user = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)
+            ->first();
+
+        if (!$user) {
+            return $this->sendError(
+                'Authentication required',
+                401
+            );
+        }
+
+        $account = AccountUser::where(
+            'user_id',
+            $user->id
+        )->first();
+
+        if (!$account) {
+            return $this->sendError(
+                'Account not found'
+            );
+        }
+
+        $pins = [
+            strtolower(trim($request->voicePin1)),
+            strtolower(trim($request->voicePin2)),
+            strtolower(trim($request->voicePin3)),
+        ];
+
+        $raw = implode(',', $pins);
+
+        $encrypted = Helpers::encryptVoiceData(
+            $raw,
+            strtolower(trim($request->voiceCode))
+        );
+
+        $account->about = $encrypted;
+        $account->save();
+
+        LogModel::create([
+            'user_id' => $user->id,
+            'logable_type' => AccountUser::class,
+            'logable_id' => $account->id,
+            'about' => 'Voice auth added/updated',
+        ]);
+
+        return $this->sendSuccess(
+            'Voice authentication updated successfully'
+        );
+    }
+
+    // deleteVoiceAuth
+    public function deleteVoiceAuth(Request $request)
+    {
+        // $user = auth()->user();
+        $user = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)->first();
+
+        if (!$user) {
+            return $this->sendError('Authentication required', 401);
+        }
+
+        if (empty($user)) {
+
+            return $this->sendError(
+                'User not found'
+            );
+        }
+
+        $account = AccountUser::where(
+            'user_id',
+            $user->id
+        )->first();
+
+        if (!$account) {
+            return $this->sendError(
+                'Account not found'
+            );
+        }
+        
+        $account->about = '';
+        $account->update();
+
+        LogModel::create([
+            'user_id' => $user->id,
+            'logable_type' => AccountUser::class,
+            'logable_id' => $account->id,
+            'about' => 'Voice auth added deleted',
+        ]);
+
+        return $this->sendSuccess('AI auth deleted successfully');
+
+    }
+
+    // get user using phone or email
+    public function findUser(Request $request)
+    {
+        // $user = auth()->user();
+        $user = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)->first();
+
+        if (!$user) {
+            return $this->sendError('Authentication required', 401);
+        }
+
+        if (empty($user)) {
+
+            return $this->sendError(
+                'User not found'
+            );
+        }
+
+
+        return $this->sendResponse($user, 'User account retrieved successfully');
+
     }
 
 

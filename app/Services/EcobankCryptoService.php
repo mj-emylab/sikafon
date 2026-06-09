@@ -24,9 +24,9 @@ class EcobankCryptoService
 
         $key = hash_pbkdf2(
             'sha256',
-            // config('services.ecobank.pin'),
+            config('services.ecobank.pin'),
             // "123456",
-            "ECOa7d931765caa4601#af997dd0f327f602!",
+            // "ECOa7d931765caa4601#af997dd0f327f602!",
             $salt,
             53389,
             32,
@@ -93,9 +93,9 @@ class EcobankCryptoService
 
         $key = hash_pbkdf2(
             'sha256',
-            // config('services.ecobank.pin'),
+            config('services.ecobank.pin'),
             // "123456",
-            "ECOa7d931765caa4601#af997dd0f327f602!",
+            // "ECOa7d931765caa4601#af997dd0f327f602!",
             $salt,
             53389,
             32,
@@ -160,9 +160,9 @@ class EcobankCryptoService
 
         $key = hash_pbkdf2(
             'sha256',
-            // config('services.ecobank.pin'),
+            config('services.ecobank.pin'),
             // "123456",
-            "ECOa7d931765caa4601#af997dd0f327f602!",
+            // "ECOa7d931765caa4601#af997dd0f327f602!",
             $salt,
             53389,
             32,

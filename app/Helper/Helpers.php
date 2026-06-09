@@ -29,6 +29,61 @@ use Endroid\QrCode\Writer\PngWriter;
 use Zxing\QrReader; // Add this for decoding
 
 class Helpers {
+
+
+    private function encryptVoiceData(
+        string $plainText,
+        string $voiceCode
+    ): string {
+
+        $key = hash('sha256', $voiceCode, true);
+
+        $iv = random_bytes(16);
+
+        $encrypted = openssl_encrypt(
+            $plainText,
+            'AES-256-CBC',
+            $key,
+            OPENSSL_RAW_DATA,
+            $iv
+        );
+
+        return base64_encode(
+            $iv . $encrypted
+        );
+    }
+
+    private function decryptVoiceData(
+        string $cipherText,
+        string $voiceCode
+    ): ?string {
+
+        try {
+
+            $data = base64_decode($cipherText);
+
+            $iv = substr($data, 0, 16);
+
+            $encrypted = substr($data, 16);
+
+            $key = hash('sha256', $voiceCode, true);
+
+            $decrypted = openssl_decrypt(
+                $encrypted,
+                'AES-256-CBC',
+                $key,
+                OPENSSL_RAW_DATA,
+                $iv
+            );
+
+            return $decrypted ?: null;
+
+        } catch (\Throwable $e) {
+
+            return null;
+        }
+    }
+
     
     public static function verifyCard(
         $firstName,
@@ -64,7 +119,6 @@ class Helpers {
             'user' => $cardUser
         ];
     }
-
 
 
     public static function createQRCode($data, $filename) {

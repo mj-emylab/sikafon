@@ -327,6 +327,7 @@ class EcobankPayloadService
             ),
 
             'accountRefNo' => $accountRefNo,
+            'identityType' => 'Ghana Card'
         ];
     }
 

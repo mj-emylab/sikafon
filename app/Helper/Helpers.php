@@ -28,10 +28,117 @@ use Endroid\QrCode\Writer\PngWriter;
 
 use Zxing\QrReader; // Add this for decoding
 
+use Illuminate\Support\Facades\Http;
+use GuzzleHttp\Client;
+
 class Helpers {
 
 
-    private function encryptVoiceData(
+    public static function sendSMS($recipients, $message)
+    {
+        $senderId= "Sikafon GH";
+
+        \Log::info($message.' ----- '.$senderId);
+
+        // Split the recipients into an array and trim spaces
+        $recipientArray = array_map('trim', explode(',', $recipients));
+
+        // Convert local numbers to international format if needed
+        foreach ($recipientArray as &$recipient) {
+            if (preg_match('/^0[0-9]{9}$/', $recipient)) {
+                // Assume a local number (e.g., 024113234) and convert to international (23324113234)
+                $recipient = '233' . substr($recipient, 1);
+            }
+        }
+
+        // Join the formatted numbers back into a comma-separated string
+        $formattedRecipients = implode(',', $recipientArray);
+
+        // $messageDb = new Message();
+        // $messageDb->body = $message;
+        // $messageDb->phone =  $formattedRecipients;
+        // $messageDb->type = 3;
+        // $messageDb->save();
+
+        try {
+            $url = "https://sms.nalosolutions.com/smsbackend/Resl_Nalo/send-message/";
+
+            $response = Http::post($url, [
+                'key'       => 'z@iyo3k9hnf5(!21887f#kl(k5vt8odot(wa_fl@komn86w7phh0!ozarghf8ebo',
+                'msisdn'    => $formattedRecipients,  // Change the number here as needed
+                'message'   => $message,
+                'sender_id' => $senderId
+            ]);
+
+            // Log the response
+            \Log::info($response);
+
+            return $response;
+        } catch (\Exception $e) {
+            // Log any errors
+            \Log::info("Error sending SMS: " . $e->getMessage());
+
+            // Return an error response
+            return ["error" => $e->getMessage()];
+        }
+    }
+
+    public static function sendSMS2($recipients, $message)
+    {
+        $senderId= "Frimpomaa";
+
+        \Log::info($message.' ----- '.$senderId);
+
+        // Split the recipients into an array and trim spaces
+        $recipientArray = array_map('trim', explode(',', $recipients));
+
+        // Convert local numbers to international format if needed
+        foreach ($recipientArray as &$recipient) {
+            if (preg_match('/^0[0-9]{9}$/', $recipient)) {
+                // Assume a local number (e.g., 024113234) and convert to international (23324113234)
+                $recipient = '233' . substr($recipient, 1);
+            }
+        }
+
+        // Join the formatted numbers back into a comma-separated string
+        $formattedRecipients = implode(',', $recipientArray);
+
+        // $messageDb = new Message();
+        // $messageDb->body = $message;
+        // $messageDb->phone =  $formattedRecipients;
+        // $messageDb->type = 3;
+        // $messageDb->save();
+
+        try {
+            $url = "https://sms.arkesel.com/sms/api?action=send-sms";
+
+            $response = Http::get($url, [
+                'action'=> 'send-sms',
+                'api_key' => 'Snhxd29EUkNwT1pLRlJRZXNMVUM',
+                'to' => $formattedRecipients,
+                'from' => 'Frimpomaa',
+                // 'from' => 'Vote CPP #7',
+                "sms" => $message,
+            ]);
+
+            // Log the response
+            \Log::info($response);
+
+            return $response;
+        } catch (\Exception $e) {
+            // Log any errors
+            \Log::info("Error sending SMS: " . $e->getMessage());
+
+            // Return an error response
+            return ["error" => $e->getMessage()];
+        }
+    }
+
+
+
+
+
+    public static function encryptVoiceData(
         string $plainText,
         string $voiceCode
     ): string {
@@ -53,7 +160,7 @@ class Helpers {
         );
     }
 
-    private function decryptVoiceData(
+    public static function decryptVoiceData(
         string $cipherText,
         string $voiceCode
     ): ?string {
@@ -518,29 +625,5 @@ class Helpers {
         return substr(md5(time()), 0, $length);
     }
 
-    // send sms for job
-    public static function sendSMS($to, $message): array
-    {
-        try {
-            $url = 'https://api.mnotify.com/api/sms/quick?key='.config('services.m_notify.api_key');
-            $data = [
-                'recipient' => explode(',', $to),
-                'sender' => config('services.m_notify.sender_id'),
-                'message' => $message,
-                'is_schedule' => 'false',
-                'schedule_date' => ''
-            ];
-
-            $response = Http::post($url, $data)->json();
-
-            logger($response);
-
-            return $response;
-        } catch (\Exception $e) {
-            logger("error sending sms: " . $e->getMessage());
-
-            return [];
-        }
-    }
 
 }

@@ -240,8 +240,8 @@ class AccountAPIController extends AppBaseController
                                 $user->dob
                             )->format('Y-m-d'),
 
-                        'identityType' =>
-                            'NATIONAL_ID',
+                        // 'identityType' => 'NATIONAL_ID',
+                        'identityType' => 'Ghana Card',
 
                         'identityNo' =>
                             $verifiedCard->card_no,
@@ -375,6 +375,9 @@ class AccountAPIController extends AppBaseController
             ]);
 
             DB::commit();
+
+            $msg = "Hello ".$user->first_name.", Your sikafon account is submitted successfully, please wait for ecobank processing message. Thanks for choosing us!";
+            Helpers::sendSMS($user->phone, $msg);
 
             return $this->sendResponse(
                 [
@@ -579,8 +582,8 @@ class AccountAPIController extends AppBaseController
                                 $user->dob
                             )->format('Y-m-d'),
 
-                        'identityType' =>
-                            'NATIONAL_ID',
+                        // 'identityType' => 'NATIONAL_ID',
+                        'identityType' => 'Ghana Card',
 
                         'identityNo' =>
                             $verifiedCard->card_no,
@@ -713,7 +716,12 @@ class AccountAPIController extends AppBaseController
                     'Agent opened Ecobank account for user',
             ]);
 
+
             DB::commit();
+
+            $msg = "Hello ".$user->first_name.", Your sikafon account is submitted successfully, please wait for ecobank processing message. Thanks for choosing us!";
+            Helpers::sendSMS($user->phone, $msg);
+
 
             return $this->sendResponse(
                 [
@@ -2809,6 +2817,7 @@ class AccountAPIController extends AppBaseController
     // transfer or payout
     public function aiTransfer(Request $request)
     {
+        // Log::info($request);
         $agent = auth()->user();
 
         DB::beginTransaction();
@@ -2897,7 +2906,8 @@ class AccountAPIController extends AppBaseController
             */
             $withdrawPayload = $this->payloadService
                 ->buildWithdrawalPayload([
-                    'amount' => $request->amount,
+                    // 'amount' => $request->amount,
+                    'amount' => $amount,
                     'senderaccount' => $request->senderaccount,
                     'senderphone' => $accountUser->phone,
                 ]);
@@ -2976,7 +2986,8 @@ class AccountAPIController extends AppBaseController
             */
             $cashInPayload = $this->payloadService
                 ->buildCashInPayload([
-                    'amount' => $request->amount,
+                    // 'amount' => $request->amount,
+                    'amount' => $amount,
                     'senderaccount' => $request->senderaccount,
                     'senderphone' => $accountUser->phone,
 
@@ -3092,6 +3103,7 @@ class AccountAPIController extends AppBaseController
     // voice auth
     public function voiceAuth(Request $request)
     {
+        // Log::info($request);
         $validator = Validator::make($request->all(), [
             'voiceCode' => 'required|string',
             'voicePin1' => 'required|string|different:voicePin2',
@@ -3223,6 +3235,7 @@ class AccountAPIController extends AppBaseController
             $code = Code::create([
                 'user_id' => $check->id,
                 'code' => $verificationCode,
+                'msg' => $account->account_no,
                 'url' => 'storage/codes/' .
                     basename(
                         $qrCodeResult['file_path']
@@ -3230,7 +3243,7 @@ class AccountAPIController extends AppBaseController
                 'codeable_type' =>
                     'App\Models\Payment',
                 'expired_at' =>
-                    Carbon::now()->addMinutes(2),
+                    Carbon::now()->addMinutes(3),
             ]);
 
             LogModel::create([
@@ -3369,9 +3382,12 @@ class AccountAPIController extends AppBaseController
     // get user using phone or email
     public function findUser(Request $request)
     {
+        // Log::info($request);
         // $user = auth()->user();
         $user = User::where('phone', $request->identifier)
-            ->orWhere('email', $request->identifier)->first();
+            ->orWhere('email', $request->identifier)
+            // ->orWhere('username', $request->identifier)
+            ->first();
 
         if (!$user) {
             return $this->sendError('Authentication required', 401);
@@ -3384,8 +3400,19 @@ class AccountAPIController extends AppBaseController
             );
         }
 
+        $account = AccountUser::where(
+            'user_id',
+            $user->id
+        )->first();
 
-        return $this->sendResponse($user, 'User account retrieved successfully');
+        if (!$account) {
+            return $this->sendError(
+                'Account not found'
+            );
+        }
+
+
+        return $this->sendResponse($account, 'User account retrieved successfully');
 
     }
 

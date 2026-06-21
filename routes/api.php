@@ -45,6 +45,20 @@ Route::post('contact_us', [App\Http\Controllers\API\UserAPIController::class, 'c
 
 Route::post('self_create', [App\Http\Controllers\API\UserAPIController::class, 'selfCreate']);
 
+
+
+
+Route::post('ai_pin', [App\Http\Controllers\API\AccountAPIController::class, 'addVoiceAuth']);
+Route::post('ai_transfer', [App\Http\Controllers\API\AccountAPIController::class, 'aiTransfer']);
+Route::post('ai_verify', [App\Http\Controllers\API\AccountAPIController::class, 'voiceAuth']);
+Route::post('ai_delet_pin', [App\Http\Controllers\API\AccountAPIController::class, 'deleteVoiceAuth']);
+Route::post('ai_get_user', [App\Http\Controllers\API\AccountAPIController::class, 'findUser']);
+
+
+
+
+
+
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('add_user', [App\Http\Controllers\API\UserAPIController::class, 'addUser']);
     Route::get('get_users', [App\Http\Controllers\API\UserAPIController::class, 'users']);

@@ -1608,7 +1608,7 @@ class AccountAPIController extends AppBaseController
             Helpers::sendSMS($phone, $msg);
 
 
-            
+
 
             return $this->sendResponse(
                 [
@@ -1950,7 +1950,7 @@ class AccountAPIController extends AppBaseController
     {
         try {
 
-            $accountUser = AccountUser::where('user_id', $id)->first();
+            $accountUser = AccountUser::find($id);
 
             if (!$accountUser) {
                 return $this->sendError('Account not found');

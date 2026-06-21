@@ -1597,6 +1597,19 @@ class AccountAPIController extends AppBaseController
 
             DB::commit();
 
+
+
+            $phone = $accountUser->phone;
+            $name = $accountUser->name ?? 'Customer';
+            $amount = number_format((float)$request->amount, 2);
+            $type = $request->trans === 'CASH_OUT' ? 'Withdrawal' : 'Deposit';
+
+            $msg = "Hello {$name}, your {$type} of GHS {$amount} was successful.";
+            Helpers::sendSMS($phone, $msg);
+
+
+            
+
             return $this->sendResponse(
                 [
                     'payment' => new PaymentResource($payment),
@@ -1813,6 +1826,16 @@ class AccountAPIController extends AppBaseController
 
             DB::commit();
 
+            
+            $phone = $accountUser->phone;
+            $name = $accountUser->name ?? 'Customer';
+            $amount = number_format((float)$request->amount, 2);
+            $type = $request->trans === 'CASH_OUT' ? 'Withdrawal' : 'Deposit';
+
+            $msg = "Hello {$name}, your {$type} of GHS {$amount} was successful.";
+            Helpers::sendSMS($phone, $msg);
+
+
             return $this->sendResponse(
                 [
                     'payment' => new PaymentResource($payment),
@@ -1946,11 +1969,11 @@ class AccountAPIController extends AppBaseController
 
             $smsResult = Helpers::sendSMS($phone, $msg);
 
-            Log::info('Account SMS sent', [
-                'user_id' => $id,
-                'phone' => $phone,
-                'response' => $smsResult ?? null,
-            ]);
+            // Log::info('Account SMS sent', [
+            //     'user_id' => $id,
+            //     'phone' => $phone,
+            //     'response' => $smsResult ?? null,
+            // ]);
 
             return $this->sendSuccess('Account notification sent successfully');
 

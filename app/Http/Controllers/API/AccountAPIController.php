@@ -1923,6 +1923,47 @@ class AccountAPIController extends AppBaseController
         }
     }
 
+    public function emailAccountTo($id)
+    {
+        try {
+
+            $accountUser = AccountUser::where('user_id', $id)->first();
+
+            if (!$accountUser) {
+                return $this->sendError('Account not found');
+            }
+
+            if (!$accountUser->account_no) {
+                return $this->sendError('Account number not assigned yet');
+            }
+
+            $name = $accountUser->name ?? 'Customer';
+            $phone = $accountUser->phone;
+            $accountNo = $accountUser->account_no;
+
+            $msg = "Hello {$name}, your Sikafon account has been successfully opened. "
+                . "Your Ecobank account number is {$accountNo}. Thank you for choosing us.";
+
+            $smsResult = Helpers::sendSMS($phone, $msg);
+
+            Log::info('Account SMS sent', [
+                'user_id' => $id,
+                'phone' => $phone,
+                'response' => $smsResult ?? null,
+            ]);
+
+            return $this->sendSuccess('Account notification sent successfully');
+
+        } catch (\Throwable $e) {
+
+            Log::error('emailAccountTo failed', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return $this->sendError($e->getMessage());
+        }
+    }
+
     // balance from ecobank
 
     // get acct number for newly opened from ecobank

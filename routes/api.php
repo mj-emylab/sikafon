@@ -93,6 +93,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('agent_check_transaction/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'agentCheckTransaction']);
     Route::post('agent_scan_code', [App\Http\Controllers\API\AccountAPIController::class, 'verifyQRCode']);
 
+    Route::get('agent_email_account/{id}', [App\Http\Controllers\API\AccountAPIController::class, 'emailAccountTo']);
+
 
 
 

@@ -163,9 +163,9 @@ class EcobankPayloadService
             'dateOfBirth' =>
                 $data['dateOfBirth'],
 
-            // 'identityType' => $data['identityType'],
+            'identityType' => $data['identityType'],
             // 'identityType' => 'NATIONAL_ID',
-            'identityType' => 'Ghana Card',
+            // 'identityType' => 'Ghana Card',
 
             'identityNo' =>
                 strtoupper($data['identityNo']),

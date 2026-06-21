@@ -701,6 +701,13 @@ class UserAPIController extends AppBaseController
             'middle_name' => 'nullable|string',
             'email' => 'required|email|unique:users,email,' . $id,
             'phone' => 'required|unique:users,phone,' . $id,
+
+            // 'dob' => 'required|date',
+            // 'address' => 'required|string',
+            // 'sex' => 'required|string',
+
+            // 'pin' => 'required|string|min:4|max:6',
+            // 'password' => 'required|string|min:6',
         ]);
 
         if ($validator->fails()) {
@@ -729,6 +736,10 @@ class UserAPIController extends AppBaseController
 
         $check->email = strtolower($request->email);
         $check->phone = $request->phone;
+
+        $check->address = $request->address ? $request->address : $check->address;
+        $check->dob = $request->dob ? Carbon::parse($request->dob)->format('Y-m-d') : $check->dob;
+        $check->sex = $request->sex ? $request->sex : $check->sex;
 
         $check->save();
 

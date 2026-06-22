@@ -529,8 +529,8 @@ class UserAPIController extends AppBaseController
     public function users(Request $request)
     {
         // $query =  User::with('user')->where('user_type', 0);
-        // $query =  User::whereIn('user_type', [0, 1, 2, 3]);
-        $query =  User::where('user_type', 0);
+        $query =  User::whereIn('user_type', [0, 1, 2, 3]);
+        // $query =  User::where('user_type', 0);
 
 
         /* ----------------------------------------------------------

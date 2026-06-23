@@ -2791,6 +2791,33 @@ class AccountAPIController extends AppBaseController
     }
 
 
+    public function checkCardStatus(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return $this->sendError('Authentication required', 401);
+        }
+
+        $verifiedCard = CardUser::where(
+                'card_no',
+                $user->card_id
+            )->first();
+
+        if (!$verifiedCard) {
+
+            return $this->sendError(
+                'Card must be verified before account creation'
+            );
+        }
+
+        return $this->sendResponse(
+            $verifiedCard,
+            'Card retrieved successfully'
+        );
+        
+    }
+
+
     //////
     public function myAccount(Request $request)
     {

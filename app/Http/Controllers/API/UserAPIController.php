@@ -40,6 +40,7 @@ use PragmaRX\Countries\Package\Countries;
 
 class UserAPIController extends AppBaseController
 {
+    
 
     public function selfCreate(Request $request)
     {
@@ -87,12 +88,12 @@ class UserAPIController extends AppBaseController
         }
 
 
-        $verifiedCard = CardUser::where('card_no', $request->card_id)
-            ->first();
+        // $verifiedCard = CardUser::where('card_no', $request->card_id)
+        //     ->first();
 
-        if (!$verifiedCard) {
-            return $this->sendError("Card must be verified with selfie before creating user");
-        }
+        // if (!$verifiedCard) {
+        //     return $this->sendError("Card must be verified with selfie before creating user");
+        // }
 
         DB::beginTransaction();
 

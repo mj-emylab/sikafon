@@ -35,6 +35,8 @@ Route::post('password/token', [App\Http\Controllers\API\ResetPasswordAPIControll
 Route::post('find/token', [App\Http\Controllers\API\ResetPasswordAPIController::class, 'find']);
 Route::post('reset/password', [App\Http\Controllers\API\ResetPasswordAPIController::class, 'reset']);
 
+Route::post('reset_password', [App\Http\Controllers\API\UserAPIController::class, 'changePassword1']);
+
 Route::post('verify-card', [App\Http\Controllers\API\AccountAPIController::class, 'verifyCard']);
 
 

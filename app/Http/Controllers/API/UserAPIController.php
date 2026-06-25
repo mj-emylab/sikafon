@@ -270,6 +270,45 @@ class UserAPIController extends AppBaseController
         }
     }
 
+    // Reset password via bibiaa
+    public function changePassword1(Request $request)
+    {
+        try {
+
+            $validator = Validator::make($request->all(), [
+                'password' => 'required|string',
+                'phone'    => 'required|string'
+            ]);
+
+            if ($validator->fails()) {
+               return $this->sendError($validator->errors());
+            }
+
+
+            $country = 'ghana';
+            $phone = Helpers::getIntContact($request->phone, $country);
+
+            $user = User::where('phone', $phone)
+                ->orWhere('phone', $request->phone)
+                ->first();
+
+            if (empty($user)) {
+                return $this->sendError('User not found');
+            }
+
+            $user->password = Hash::make($request->get('password'));
+            $user->update();
+
+
+            return $this->sendSuccess('Password changed successfully');
+
+        } catch (\Exception $ex) {
+            return $this->sendError($ex->getMessage());
+        }
+    }
+
+
+
     public function addUser(Request $request)
     {
         $validator = Validator::make(
@@ -911,11 +950,11 @@ class UserAPIController extends AppBaseController
             $msg = "A new successful login into your sikafon account: "
                 . Carbon::now()->toDayDateTimeString();
 
-            DynamicMailJob::dispatch(
-                $user,
-                'Authentication Email',
-                $msg
-            );
+            // DynamicMailJob::dispatch(
+            //     $user,
+            //     'Authentication Email',
+            //     $msg
+            // );
 
             /*
             |--------------------------------------------------------------------------

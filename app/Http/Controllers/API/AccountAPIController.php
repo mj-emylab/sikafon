@@ -393,6 +393,13 @@ class AccountAPIController extends AppBaseController
 
             \Log::error($e);
 
+            // Activity log
+            LogModel::create([
+                'user_id' => auth()->id(),
+                'logable_type' => 'App\Models\AccountUser',
+                'about' => $e->getMessage(),
+            ]);
+
             return $this->sendError(
                 $e->getMessage()
             );
@@ -736,6 +743,13 @@ class AccountAPIController extends AppBaseController
             DB::rollBack();
 
             \Log::error($e);
+
+            // Activity log
+            LogModel::create([
+                'user_id' => auth()->id(),
+                'logable_type' => 'App\Models\AccountUser',
+                'about' => $e->getMessage(),
+            ]);
 
             return $this->sendError(
                 $e->getMessage()

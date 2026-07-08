@@ -35,6 +35,14 @@ use App\Models\Pin;
 use App\Models\Code;
 use App\Models\User;
 
+
+// stage 3
+use App\Models\Card;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Hash;
+use App\Jobs\DynamicMailJob;
+
+
 /**
  * Class AccountController
  * @package App\Http\Controllers\API
@@ -756,6 +764,912 @@ class AccountAPIController extends AppBaseController
             );
         }
     }
+
+
+
+    public function openAccountAI($id)
+    {
+        DB::beginTransaction();
+
+        try {
+
+            $agent = User::find($id);
+
+            if (!$agent) {
+                return $this->sendError(
+                    'Authentication required',
+                    401
+                );
+            }
+
+            // Optional:
+            // if ($agent->user_type !== 'agent') {
+            //     return $this->sendError('Unauthorized');
+            // }
+
+            $user = $agent;
+
+            if (!$user) {
+                return $this->sendError(
+                    'User not found'
+                );
+            }
+
+            // Prevent duplicate account opening
+            $existingAccount = AccountUser::where(
+                'user_id',
+                $user->id
+            )->first();
+
+            if ($existingAccount) {
+
+                return $this->sendError(
+                    'User already has an account'
+                );
+            }
+
+            $verifiedCard = CardUser::where(
+                'card_no',
+                $user->card_id
+            )->first();
+
+            if (!$verifiedCard) {
+
+                return $this->sendError(
+                    'Card must be verified before account creation'
+                );
+            }
+
+
+            // verification
+            $selfiePath = storage_path(
+                'app/public/' . $verifiedCard->live_selfie
+            );
+
+            if (!file_exists($selfiePath)) {
+                return $this->sendError(
+                    'Saved selfie not found'
+                );
+            }
+
+            $image = base64_encode(
+                file_get_contents($selfiePath)
+            );
+
+            $verificationPayload =
+                $this->payloadService
+                    ->buildValidateIdentityPayload([
+
+                        'idNumber' =>
+                            $verifiedCard->card_no,
+
+                        'base64Image' =>
+                            $image,
+                    ]);
+
+            $verificationResponse =
+                $this->ecobankService->post(
+                    'validateidentity',
+                    $verificationPayload
+                );
+
+            if (
+                data_get(
+                    $verificationResponse,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $verificationResponse,
+                        'response.header.responsemessage',
+                        'Identity verification failed'
+                    )
+                );
+            }
+
+            $transactionGuid = data_get(
+                $verificationResponse,
+                'response.transactionGuid'
+            );
+
+            $verifiedFirstName =
+                data_get(
+                    $verificationResponse,
+                    'response.firstName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.firstname'
+                );
+
+            $verifiedLastName =
+                data_get(
+                    $verificationResponse,
+                    'response.lastName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.lastname'
+                );
+
+            $verifiedMiddleName =
+                data_get(
+                    $verificationResponse,
+                    'response.middleName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.middlename'
+                ) ??
+                '';
+
+            // $responseData = data_get(
+            //     $verificationResponse,
+            //     'response',
+            //     []
+            // );
+
+            // $verifiedFirstName =
+            //     $responseData['firstName']
+            //     ?? $responseData['firstname']
+            //     ?? '';
+
+            // $verifiedLastName =
+            //     $responseData['lastName']
+            //     ?? $responseData['lastname']
+            //     ?? '';
+
+            // $verifiedMiddleName =
+            //     $responseData['middleName']
+            //     ?? $responseData['middlename']
+            //     ?? '';
+
+            // 
+
+
+            $payload =
+                $this->payloadService
+                    ->buildCreateAccountPayload([
+
+                        // 'firstname' => $user->first_name,
+                        // 'lastname' => $user->last_name,
+                        // 'middlename' => $user->middle_name,
+
+
+                        'firstname' => $verifiedFirstName,
+                        'lastname' => $verifiedLastName,
+                        'middlename' => $verifiedMiddleName,
+
+                        'dateOfBirth' =>
+                            Carbon::parse(
+                                $user->dob
+                            )->format('Y-m-d'),
+
+                        // 'identityType' => 'NATIONAL_ID',
+                        'identityType' => 'Ghana Card',
+
+                        'identityNo' =>
+                            $verifiedCard->card_no,
+
+                        'idIssueDate' =>
+                            Carbon::parse(
+                                $verifiedCard->issued_at
+                            )->format('Y-m-d'),
+
+                        'idExpiryDate' =>
+                            Carbon::parse(
+                                $verifiedCard->expired_at
+                            )->format('Y-m-d'),
+
+                        'mobileNo' =>
+                            $user->phone,
+
+                        'email' =>
+                            $user->email,
+
+                        'gender' =>
+                            $user->sex,
+
+                        'address' =>
+                            $user->address,
+
+                        'countryCode' =>
+                            'GH',
+
+                        'transactionGuid' => $transactionGuid,
+
+                        'id' =>
+                            'CUS-' . time(),
+                    ]);
+
+            $response =
+                $this->ecobankService->post(
+                    'createaccount',
+                    $payload
+                );
+
+            if (
+                !data_get($response, 'success')
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Unable to connect to Ecobank'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Account creation failed'
+                    )
+                );
+            }
+
+            $accountNumber =
+                data_get(
+                    $response,
+                    'response.accountNumber'
+                );
+
+            $accountRefNo =
+                data_get(
+                    $response,
+                    'response.accountRefNo'
+                );
+
+            $accountUser = AccountUser::create([
+
+                'user_id' =>
+                    $user->id,
+
+                // 'name' =>
+                //     $user->first_name .
+                //     ' ' .
+                //     $user->last_name,
+
+                'name' => collect([
+                    $user->last_name,
+                    $user->middle_name,
+                    $user->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
+
+                'phone' =>
+                    $user->phone,
+
+                'account_no' =>
+                    $accountNumber,
+
+                'account_ref' =>
+                    $accountRefNo ?? $transactionGuid,
+
+                'agent_code' => $agent->code,
+            ]);
+
+            // Activity log
+            LogModel::create([
+
+                'user_id' =>
+                    $agent->id,
+
+                'logable_type' =>
+                    'App\Models\AccountUser',
+
+                'logable_id' =>
+                    $accountUser->id,
+
+                'about' =>
+                    'Agent opened Ecobank account for user',
+            ]);
+
+
+            DB::commit();
+
+            $msg = "Hello ".$user->first_name.", Your sikafon account is submitted successfully, please wait for ecobank processing message. Thanks for choosing us!";
+            Helpers::sendSMS($user->phone, $msg);
+
+
+            return $this->sendResponse(
+                [
+                    'account' => $accountUser,
+                    'ecobank' => $response['response'],
+                ],
+                'Account created successfully'
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            \Log::error($e);
+
+            // Activity log
+            LogModel::create([
+                'user_id' => auth()->id(),
+                'logable_type' => 'App\Models\AccountUser',
+                'about' => $e->getMessage(),
+            ]);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function registerStage3(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+
+                'live_selfie' => 'required|image|mimes:jpeg,png,jpg',
+
+                'card_no' => 'required',
+
+                'issue_date' => 'required|date',
+
+                'expiry_date' => 'required|date',
+
+                'id_type' => 'required',
+
+                'first_name' => 'required|string',
+
+                'middle_name' => 'nullable|string',
+
+                'last_name' => 'required|string',
+
+                'phone' => 'required|string',
+
+                'email' => 'required|email|unique:users,email',
+
+                'sex' => 'required|string',
+
+                'dob' => 'required|date',
+
+                'address' => 'required|string',
+
+                'password' => 'required|string|min:6',
+
+                'pin' => 'required|string|min:4|max:6',
+            ]
+        );
+
+        if ($validator->fails()) {
+
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Encode Selfie
+            |--------------------------------------------------------------------------
+            */
+
+            $image = base64_encode(
+                file_get_contents(
+                    $request->file(
+                        'live_selfie'
+                    )->getRealPath()
+                )
+            );
+
+            $path = $request->file(
+                'live_selfie'
+            )->store(
+                'live_selfies',
+                'public'
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Validate Ghana Card
+            |--------------------------------------------------------------------------
+            */
+
+            $payload =
+                $this->payloadService
+                    ->buildValidateIdentityPayload([
+
+                        'idNumber' =>
+                            strtoupper(
+                                $request->card_no
+                            ),
+
+                        'base64Image' =>
+                            $image,
+                    ]);
+
+            $verificationResponse =
+                $this->ecobankService->post(
+                    'validateidentity',
+                    $payload
+                );
+
+            if (
+                !data_get(
+                    $verificationResponse,
+                    'success'
+                )
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+
+                    data_get(
+                        $verificationResponse,
+                        'message',
+                        'Unable to verify identity'
+                    )
+                );
+            }
+
+            if (
+
+                data_get(
+                    $verificationResponse,
+                    'response.header.responsecode'
+                ) != '000'
+
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+
+                    data_get(
+                        $verificationResponse,
+                        'response.header.responsemessage',
+                        'Identity verification failed'
+                    )
+                );
+            }
+
+            $transactionGuid =
+                data_get(
+                    $verificationResponse,
+                    'response.transactionGuid'
+                );
+
+            $verifiedFirstName =
+                data_get(
+                    $verificationResponse,
+                    'response.firstName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.firstname'
+                );
+
+            $verifiedLastName =
+                data_get(
+                    $verificationResponse,
+                    'response.lastName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.lastname'
+                );
+
+            $verifiedMiddleName =
+                data_get(
+                    $verificationResponse,
+                    'response.middleName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.middlename'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Verification
+            |--------------------------------------------------------------------------
+            */
+
+            CardUser::where(
+                'card_no',
+                strtoupper($request->card_no)
+            )->delete();
+
+            $verification =
+                CardUser::create([
+
+                    'card_no' =>
+                        strtoupper(
+                            $request->card_no
+                        ),
+
+                    'id_type' =>
+                        $request->id_type,
+
+                    'issued_at' =>
+                        $request->issue_date,
+
+                    'expired_at' =>
+                        $request->expiry_date,
+
+                    'first_name' =>
+                        $verifiedFirstName,
+
+                    'last_name' =>
+                        $verifiedLastName,
+
+                    'live_selfie' =>
+                        $path,
+                ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Generate QR
+            |--------------------------------------------------------------------------
+            */
+
+            $code =
+                Helpers::generateVerificationCode();
+
+            $qr =
+                Helpers::generateQRCode(
+                    $code
+                );
+
+            if (
+                !$qr['success']
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Unable to generate QR'
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Normalize Phone
+            |--------------------------------------------------------------------------
+            */
+
+            $phone =
+                Helpers::getIntContact(
+                    $request->phone,
+                    'ghana'
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create User
+            |--------------------------------------------------------------------------
+            */
+
+            $user = new User();
+
+            $user->address =
+                $request->address;
+
+            $user->phone =
+                $phone;
+
+            $user->sex =
+                $request->sex;
+
+            $user->card_id =
+                strtoupper(
+                    $request->card_no
+                );
+
+            $user->card_type =
+                $request->id_type;
+
+            $user->email =
+                strtolower(
+                    $request->email
+                );
+
+            $user->dob =
+                Carbon::parse(
+                    $request->dob
+                )->format(
+                    'Y-m-d'
+                );
+
+            $user->first_name =
+                $verifiedFirstName;
+
+            $user->middle_name =
+                $verifiedMiddleName;
+
+            $user->last_name =
+                $verifiedLastName;
+
+            $user->password =
+                Hash::make(
+                    $request->password
+                );
+
+            $user->code =
+                $code;
+
+            $user->code_url =
+                'storage/codes/' .
+                basename(
+                    $qr['file_path']
+                );
+
+            $user->save();
+
+            $verification->user_id =
+                $user->id;
+
+            $verification->save();
+
+            Pin::create([
+
+                'user_id' =>
+                    $user->id,
+
+                'code' =>
+                    Hash::make(
+                        $request->pin
+                    ),
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Ecobank Account
+            |--------------------------------------------------------------------------
+            */
+
+            $payload =
+                $this->payloadService
+                    ->buildCreateAccountPayload([
+
+                        'firstname' =>
+                            $verifiedFirstName,
+
+                        'lastname' =>
+                            $verifiedLastName,
+
+                        'middlename' =>
+                            $verifiedMiddleName,
+
+                        'dateOfBirth' =>
+                            Carbon::parse(
+                                $user->dob
+                            )->format('Y-m-d'),
+
+                        'identityType' =>
+                            'Ghana Card',
+
+                        'identityNo' =>
+                            strtoupper(
+                                $request->card_no
+                            ),
+
+                        'idIssueDate' =>
+                            Carbon::parse(
+                                $request->issue_date
+                            )->format('Y-m-d'),
+
+                        'idExpiryDate' =>
+                            Carbon::parse(
+                                $request->expiry_date
+                            )->format('Y-m-d'),
+
+                        'mobileNo' =>
+                            $user->phone,
+
+                        'email' =>
+                            $user->email,
+
+                        'gender' =>
+                            $user->sex,
+
+                        'address' =>
+                            $user->address,
+
+                        'countryCode' =>
+                            'GH',
+
+                        'transactionGuid' =>
+                            $transactionGuid,
+
+                        'id' =>
+                            'CUS-' . time(),
+                    ]);
+
+            $accountResponse =
+                $this->ecobankService->post(
+                    'createaccount',
+                    $payload
+                );
+
+            if (
+                !data_get(
+                    $accountResponse,
+                    'success'
+                )
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+
+                    data_get(
+                        $accountResponse,
+                        'message',
+                        'Unable to connect to Ecobank'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $accountResponse,
+                    'response.header.responsecode'
+                ) != '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+
+                    data_get(
+                        $accountResponse,
+                        'response.header.responsemessage',
+                        'Account creation failed'
+                    )
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save Account
+            |--------------------------------------------------------------------------
+            */
+
+            $account =
+                AccountUser::create([
+
+                    'user_id' =>
+                        $user->id,
+
+                    'name' =>
+                        collect([
+
+                            $user->last_name,
+                            $user->middle_name,
+                            $user->first_name,
+
+                        ])->filter()->implode(' '),
+
+                    'phone' =>
+                        $user->phone,
+
+                    'account_no' =>
+                        data_get(
+                            $accountResponse,
+                            'response.accountNumber'
+                        ),
+
+                    'account_ref' =>
+                        data_get(
+                            $accountResponse,
+                            'response.accountRefNo'
+                        ) ?:
+                        $transactionGuid,
+
+                    'agent_code' =>
+                        $user->code,
+                ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Activity Log
+            |--------------------------------------------------------------------------
+            */
+
+            LogModel::create([
+
+                'user_id' =>
+                    $user->id,
+
+                'logable_type' =>
+                    'App\Models\AccountUser',
+
+                'logable_id' =>
+                    $account->id,
+
+                'about' =>
+                    'Bibia AI Registration',
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Welcome Email
+            |--------------------------------------------------------------------------
+            */
+
+            $msg =
+                "Congratulations! Your SIKAFON account has been created successfully.";
+
+            DynamicMailJob::dispatch(
+                $user,
+                'Registration Email',
+                $msg
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | SMS
+            |--------------------------------------------------------------------------
+            */
+
+            Helpers::sendSMS(
+
+                $user->phone,
+
+                "Hello {$user->first_name}, your Sikafon account and Ecobank account have been created successfully."
+            );
+
+            DB::commit();
+
+            return $this->sendResponse([
+
+                'user' => new UserResource($user),
+
+                'account' => $account,
+
+                'ecobank' => data_get(
+                    $accountResponse,
+                    'response'
+                ),
+
+                'verification_id' =>
+                    $verification->id,
+
+            ], 'Registration completed successfully.');
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            \Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+
 
 
     public function addAccountAgent(Request $request)

@@ -57,8 +57,10 @@ Route::post('ai_delet_pin', [App\Http\Controllers\API\AccountAPIController::clas
 Route::post('ai_get_user', [App\Http\Controllers\API\AccountAPIController::class, 'findUser']);
 
 
-
-
+Route::post(
+    'register_stage3',
+    [App\Http\Controllers\API\AccountAPIController::class, 'registerStage3']
+);
 
 
 Route::middleware(['auth:sanctum'])->group(function () {

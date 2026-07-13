@@ -1117,6 +1117,169 @@ class AccountAPIController extends AppBaseController
         }
     }
 
+
+    public function registerStage1(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+
+            'phone' => 'required|unique:users,phone',
+
+            'first_name' => 'required|string',
+
+            'middle_name' => 'nullable|string',
+
+            'last_name' => 'required|string',
+
+            'password' => 'required|string|min:6',
+
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $phone = Helpers::getIntContact(
+                $request->phone,
+                'ghana'
+            );
+
+            $code = Helpers::generateVerificationCode();
+
+            $qr = Helpers::generateQRCode($code);
+
+            if (!$qr['success']) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Unable to generate QR'
+                );
+            }
+
+            $user = User::create([
+
+                'phone' => $phone,
+
+                'first_name' => ucwords($request->first_name),
+
+                'middle_name' => $request->middle_name,
+
+                'last_name' => ucwords($request->last_name),
+
+                'password' => Hash::make($request->password),
+
+                'code' => $code,
+
+                'code_url' => 'storage/codes/'.basename(
+                    $qr['file_path']
+                ),
+
+            ]);
+
+            Pin::create([
+
+                'user_id' => $user->id,
+
+                'code' => Hash::make(
+                    substr(
+                        preg_replace('/\D/', '', $phone),
+                        -6
+                    )
+                ),
+
+            ]);
+
+            DB::commit();
+
+            return $this->sendResponse([
+
+                'user' => $user,
+
+            ], 'Stage 1 completed.');
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function updateStage2(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+
+            'phone' => 'required',
+
+            'email' => 'required|email',
+
+            'username' => 'required',
+
+            'sex' => 'required',
+
+            'dob' => 'required|date',
+
+            'card_no' => 'required',
+
+            'id_type' => 'required',
+
+            'address' => 'required',
+
+        ]);
+
+        if ($validator->fails()) {
+
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        $phone = Helpers::getIntContact(
+            $request->phone,
+            'ghana'
+        );
+
+        $user = User::where('phone', $phone)->first();
+
+        if (!$user) {
+
+            return $this->sendError(
+                'User not found'
+            );
+        }
+
+        $user->update([
+
+            'email' => strtolower($request->email),
+
+            'username' => $request->username,
+
+            'sex' => $request->sex,
+
+            'dob' => Carbon::parse($request->dob),
+
+            'card_id' => strtoupper($request->card_no),
+
+            'card_type' => $request->id_type,
+
+            'address' => $request->address,
+
+        ]);
+
+        return $this->sendResponse(
+            $user,
+            'Stage 2 updated.'
+        );
+    }
+
     public function registerStage3(Request $request)
     {
         $validator = Validator::make(
@@ -1140,18 +1303,6 @@ class AccountAPIController extends AppBaseController
                 'last_name' => 'required|string',
 
                 'phone' => 'required|string',
-
-                'email' => 'required|email|unique:users,email',
-
-                'sex' => 'required|string',
-
-                'dob' => 'required|date',
-
-                'address' => 'required|string',
-
-                'password' => 'required|string|min:6',
-
-                'pin' => 'required|string|min:4|max:6',
             ]
         );
 
@@ -1165,6 +1316,30 @@ class AccountAPIController extends AppBaseController
         DB::beginTransaction();
 
         try {
+
+
+            $phone =
+                Helpers::getIntContact(
+                    $request->phone,
+                    'ghana'
+                );
+
+            $user = User::where('phone', $phone)->first();
+            if (!$user) {
+
+                return $this->sendError(
+                    'User not found'
+                );
+            }
+
+            if (AccountUser::where('user_id', $user->id)->exists()) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Ecobank account already exists.'
+                );
+            }
 
             /*
             |--------------------------------------------------------------------------
@@ -1324,122 +1499,13 @@ class AccountAPIController extends AppBaseController
 
                     'live_selfie' =>
                         $path,
-                ]);
-
-            /*
-            |--------------------------------------------------------------------------
-            | Generate QR
-            |--------------------------------------------------------------------------
-            */
-
-            $code =
-                Helpers::generateVerificationCode();
-
-            $qr =
-                Helpers::generateQRCode(
-                    $code
-                );
-
-            if (
-                !$qr['success']
-            ) {
-
-                DB::rollBack();
-
-                return $this->sendError(
-                    'Unable to generate QR'
-                );
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | Normalize Phone
-            |--------------------------------------------------------------------------
-            */
-
-            $phone =
-                Helpers::getIntContact(
-                    $request->phone,
-                    'ghana'
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Create User
-            |--------------------------------------------------------------------------
-            */
-
-            $user = new User();
-
-            $user->address =
-                $request->address;
-
-            $user->phone =
-                $phone;
-
-            $user->sex =
-                $request->sex;
-
-            $user->card_id =
-                strtoupper(
-                    $request->card_no
-                );
-
-            $user->card_type =
-                $request->id_type;
-
-            $user->email =
-                strtolower(
-                    $request->email
-                );
-
-            $user->dob =
-                Carbon::parse(
-                    $request->dob
-                )->format(
-                    'Y-m-d'
-                );
-
-            $user->first_name =
-                $verifiedFirstName;
-
-            $user->middle_name =
-                $verifiedMiddleName;
-
-            $user->last_name =
-                $verifiedLastName;
-
-            $user->password =
-                Hash::make(
-                    $request->password
-                );
-
-            $user->code =
-                $code;
-
-            $user->code_url =
-                'storage/codes/' .
-                basename(
-                    $qr['file_path']
-                );
-
-            $user->save();
+                ]
+            );
 
             $verification->user_id =
                 $user->id;
 
             $verification->save();
-
-            Pin::create([
-
-                'user_id' =>
-                    $user->id,
-
-                'code' =>
-                    Hash::make(
-                        $request->pin
-                    ),
-            ]);
 
             /*
             |--------------------------------------------------------------------------

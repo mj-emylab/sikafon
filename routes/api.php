@@ -62,6 +62,19 @@ Route::post('update_stage2', [App\Http\Controllers\API\AccountAPIController::cla
 Route::post('register_stage3', [App\Http\Controllers\API\AccountAPIController::class, 'registerStage3']);
 
 
+//// api
+Route::post('verify-card-api', [App\Http\Controllers\API\AccountAPIController::class, 'verifyCardApi']);
+Route::post('open-account-api', [App\Http\Controllers\API\AccountAPIController::class, 'openAccountApi']);
+Route::post('add-account-api', [App\Http\Controllers\API\AccountAPIController::class, 'addAccountApi']);
+Route::post('new-transaction-api', [App\Http\Controllers\API\AccountAPIController::class, 'newTransactionApi']);
+Route::post('check-account-api', [App\Http\Controllers\API\AccountAPIController::class, 'syncAccountApi']); // sync acct no
+
+Route::post('find-account-api', [App\Http\Controllers\API\AccountAPIController::class, 'findAccountApi']); // find acct no
+
+
+//// end api
+
+
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('add_user', [App\Http\Controllers\API\UserAPIController::class, 'addUser']);
     Route::get('get_users', [App\Http\Controllers\API\UserAPIController::class, 'users']);

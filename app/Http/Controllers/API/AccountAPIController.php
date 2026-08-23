@@ -812,7 +812,7 @@ class AccountAPIController extends AppBaseController
 
             return $this->sendResponse(
                 [
-                    'payment' => new PaymentResource($payment),
+                    // 'payment' => new PaymentResource($payment),
                     'ecobank' => $response['response']
                 ],
                 'Transaction successful'

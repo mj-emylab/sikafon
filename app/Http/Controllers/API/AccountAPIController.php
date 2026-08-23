@@ -62,6 +62,854 @@ class AccountAPIController extends AppBaseController
     }
 
 
+
+
+    ///// api
+    public function verifyCardApi(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'live_selfie' => 'required|image|mimes:jpeg,png,jpg',
+                'card_no' => 'required',
+                'issue_date' => 'required|date',
+                'expiry_date' => 'required|date',
+                'id_type' => 'required',
+                'first_name' => 'required|string',
+                'last_name' => 'required|string',
+            ]
+        );
+
+        if ($validator->fails()) {
+
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        if (!$request->hasFile('live_selfie')) {
+            return $this->sendError("Selfie is required for card verification");
+        }
+
+        try {
+
+            $image =
+                base64_encode(
+                    file_get_contents(
+                        $request->file(
+                            'live_selfie'
+                        )->getRealPath()
+                    )
+                );
+
+            $path = $request->file('live_selfie')
+                ->store('live_selfies', 'public');
+
+            $payload =
+                $this->payloadService
+                    ->buildValidateIdentityPayload([
+
+                        'idNumber' =>
+                            $request->card_no,
+
+                        'base64Image' =>
+                            $image,
+                    ]);
+
+            $response =
+                $this->ecobankService->post(
+                    'validateidentity',
+                    $payload
+                );
+
+            if (
+                !data_get($response, 'success')
+            ) {
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Verification failed'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Card verification failed'
+                    )
+                );
+            }
+
+            // $apiFirstName = strtoupper(trim(data_get($response, 'firstName')));
+            // $apiLastName  = strtoupper(trim(data_get($response, 'lastname')));
+
+            // $userFirstName = strtoupper(trim($request->first_name));
+            // $userLastName  = strtoupper(trim($request->last_name));
+
+            // if ($apiFirstName !== $userFirstName || $apiLastName !== $userLastName) {
+            //     return $this->sendError("Name mismatch between ID and provided details");
+            // }
+
+            CardUser::where('card_no', $request->card_no)->delete();
+
+            $verification = CardUser::create([
+
+                // 'user_id' => Auth::id(),
+
+                'card_no' => $request->card_no,
+
+                'id_type' => $request->id_type,
+
+                'issued_at' => $request->issue_date,
+
+                'expired_at' => $request->expiry_date,
+
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'live_selfie' => $path, // saved the live_selfie to storage/public/app/live_selfie
+            ]);
+
+            // return $this->sendResponse(
+            //     data_get($response, 'response'),
+            //     'Card verified successfully'
+            // );
+
+            // \Log::info(data_get($response, 'response'));
+
+            return $this->sendResponse([
+                'verification_id' => $verification->id,
+            ], 'Card verified successfully');
+
+        } catch (\Throwable $e) {
+
+            Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function openAccountApi(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'first_name' => 'required',
+                'middle_name' => 'nullable',
+                'last_name' => 'required',
+                'phone' => 'required',
+                'email' => 'required',
+                'sex' => 'required',
+                'address' => 'required',
+                'card_id' => 'required',
+                'dob' => 'required', // format('Y-m-d')
+            ]
+        );
+
+        if ($validator->fails()) {
+
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $verifiedCard = CardUser::where('card_no', $request->card_id)->first();
+            if (!$verifiedCard) {
+                return $this->sendError(
+                    'Card must be verified before account creation'
+                );
+            }
+
+            // verification
+            $selfiePath = storage_path(
+                'app/public/' . $verifiedCard->live_selfie
+            );
+
+            if (!file_exists($selfiePath)) {
+                return $this->sendError(
+                    'Saved selfie not found'
+                );
+            }
+
+            $image = base64_encode(
+                file_get_contents($selfiePath)
+            );
+
+            $verificationPayload =
+                $this->payloadService
+                    ->buildValidateIdentityPayload([
+
+                        'idNumber' =>
+                            $verifiedCard->card_no,
+
+                        'base64Image' =>
+                            $image,
+                    ]);
+
+            $verificationResponse =
+                $this->ecobankService->post(
+                    'validateidentity',
+                    $verificationPayload
+                );
+
+            if (
+                data_get(
+                    $verificationResponse,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $verificationResponse,
+                        'response.header.responsemessage',
+                        'Identity verification failed'
+                    )
+                );
+            }
+
+            $transactionGuid = data_get(
+                $verificationResponse,
+                'response.transactionGuid'
+            );
+
+            $verifiedFirstName =
+                data_get(
+                    $verificationResponse,
+                    'response.firstName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.firstname'
+                );
+
+            $verifiedLastName =
+                data_get(
+                    $verificationResponse,
+                    'response.lastName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.lastname'
+                );
+
+            $verifiedMiddleName =
+                data_get(
+                    $verificationResponse,
+                    'response.middleName'
+                ) ??
+                data_get(
+                    $verificationResponse,
+                    'response.middlename'
+                ) ??
+                '';
+
+            $payload =
+                $this->payloadService
+                    ->buildCreateAccountPayload([
+                        'firstname' => $verifiedFirstName,
+                        'lastname' => $verifiedLastName,
+                        'middlename' => $verifiedMiddleName,
+                        
+                        'dateOfBirth' => Carbon::parse($request->dob)->format('Y-m-d'),
+                        // 'identityType' => 'NATIONAL_ID',
+                        'identityType' => 'Ghana Card',
+                        'identityNo' => $verifiedCard->card_no,
+                        'idIssueDate' => Carbon::parse($verifiedCard->issued_at)->format('Y-m-d'),
+                        'idExpiryDate' => Carbon::parse($verifiedCard->expired_at)->format('Y-m-d'),
+                        'mobileNo' => $request->phone,
+                        'email' => $request->email,
+                        'gender' => $request->sex,
+                        'address' => $request->address,
+                        'countryCode' => 'GH',
+                        'transactionGuid' => $transactionGuid,
+                        'id' => 'CUS-' . time(),
+                    ]);
+
+            $response =
+                $this->ecobankService->post(
+                    'createaccount',
+                    $payload
+                );
+
+            if (
+                !data_get($response, 'success')
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Unable to connect to Ecobank'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Account creation failed'
+                    )
+                );
+            }
+
+            $accountNumber =
+                data_get(
+                    $response,
+                    'response.accountNumber'
+                );
+
+            $accountRefNo =
+                data_get(
+                    $response,
+                    'response.accountRefNo'
+                );
+
+            $accountUser = AccountUser::create([
+                // 'user_id' => $user->id,
+
+                'name' => collect([
+                    $request->last_name,
+                    $request->middle_name,
+                    $request->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
+
+                'phone' => $request->phone,
+                'account_no' => $accountNumber,
+                'account_ref' => $accountRefNo ?? $transactionGuid,
+                // 'agent_code' => $agent->code,
+            ]);
+
+            // Activity log
+            LogModel::create([
+                // 'user_id' => $agent->id,
+                'logable_type' => 'App\Models\AccountUser',
+                'logable_id' => $accountUser->id,
+                'about' => 'Self opened Ecobank account by user',
+            ]);
+
+            DB::commit();
+
+            $msg = "Hello ".$request->first_name.", Your sikafon account is submitted successfully, please wait for ecobank processing message. Thanks for choosing us!";
+            Helpers::sendSMS($request->phone, $msg);
+
+            return $this->sendResponse(
+                [
+                    'account' => $accountUser,
+                    'ecobank' => $response['response'],
+                ],
+                'Account created successfully'
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+            \Log::error($e);
+
+            // Activity log
+            LogModel::create([
+                // 'user_id' => auth()->id(),
+                'logable_type' => 'App\Models\AccountUser',
+                'about' => $e->getMessage(),
+            ]);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function addAccountApi(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'account_number' => 'required|string',
+            'last_name' => 'required',
+            'middle_name' => 'required',
+            'first_name' => 'required',
+            'phone' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // Validate account from Ecobank
+            $payload =
+                $this->payloadService
+                    ->buildGetAccountPayload(
+                        $request->account_number
+                    );
+
+            $response =
+                $this->ecobankService->post(
+                    'getcustomerdetails',
+                    $payload
+                );
+
+            if (!data_get($response, 'success')) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Failed to connect to Ecobank'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Unable to fetch account'
+                    )
+                );
+            }
+
+            $accountData = data_get($response, 'response');
+
+            // Generate QR code
+            $genCode = Helpers::generateVerificationCode();
+            $qrCodeResult = Helpers::generateQRCode($genCode);
+
+            if (!$qrCodeResult['success']) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    'Failed to generate QR code'
+                );
+            }
+
+            $code = Code::create([
+                // 'user_id' => $user->id,
+                'code' => $genCode,
+                'url' => 'storage/codes/' . basename($qrCodeResult['file_path']),
+            ]);
+
+            // Save account
+            $accountUser = AccountUser::create([
+                // 'user_id' => $user->id,
+
+                'code_id' => $code->id,
+                'qrcode_id' => $code->id,
+
+                // 'name' =>
+                //     $user->last_name .
+                //     ' ' .
+                //     $user->first_name,
+                
+                'name' => collect([
+                    $request->last_name,
+                    $request->middle_name,
+                    $request->first_name,
+                ])
+                ->filter()
+                ->implode(' '),
+
+                'phone' => $request->phone,
+
+                'account_no' =>
+                    data_get(
+                        $accountData,
+                        'accountNumber',
+                        $request->account_number
+                    ),
+
+                'account_ref' =>
+                    data_get(
+                        $accountData,
+                        'accountRefNo'
+                    ),
+
+                // 'agent_code' => $agent->code,
+            ]);
+
+            $code->update([
+                'codeable_type' =>'App\Models\AccountUser',
+                'codeable_id' => $accountUser->id,
+            ]);
+
+            // Activity log
+            LogModel::create([
+                // 'user_id' => $agent->id,
+
+                'logable_type' => 'App\Models\AccountUser',
+                'logable_id' => $accountUser->id,
+                'about' => 'API added Ecobank account for user',
+            ]);
+
+            DB::commit();
+
+            return $this->sendResponse(
+                new AccountUserResource($accountUser),
+                'Account linked successfully'
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            \Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    public function syncAccountApi(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'account_number' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        // first check local account
+        $accountUser = AccountUser::where(
+            'account_ref',
+            $request->account_number
+        )
+        ->orWhere(
+            'account_no',
+            $request->account_number
+        )
+        ->first();
+
+        $payload =
+            $this->payloadService
+                ->buildSyncAccountPayload(
+                    $request->account_number
+                );
+
+        $response =
+            $this->ecobankService->post(
+                'getaccount',
+                $payload
+            );
+
+        \Log::info([
+            'get_account_response' => $response
+        ]);
+
+        if (
+            !data_get($response, 'success')
+        ) {
+
+            return $this->sendError(
+                data_get(
+                    $response,
+                    'message',
+                    'Failed to connect to Ecobank'
+                )
+            );
+        }
+
+        if (
+            data_get(
+                $response,
+                'response.header.responsecode'
+            ) !== '000'
+        ) {
+
+            return $this->sendError(
+                data_get(
+                    $response,
+                    'response.header.responsemessage',
+                    'Unable to fetch account'
+                )
+            );
+        }
+
+        // Ecobank may return either accountNumber or accountNo
+        $accountNumber =
+            data_get(
+                $response,
+                'response.accountNumber'
+            ) ?:
+            data_get(
+                $response,
+                'response.accountNo'
+            );
+
+        // auto sync local record if missing
+        if (
+            $accountUser &&
+            empty($accountUser->account_no) &&
+            !empty($accountNumber)
+        ) {
+
+            $accountUser->update([
+                'account_no' => $accountNumber,
+            ]);
+
+            $accountUser->refresh();
+        }
+
+        return $this->sendResponse(
+            [
+                'ecobank' => data_get(
+                    $response,
+                    'response'
+                ),
+
+                'local_account' => $accountUser,
+            ],
+            'Account retrieved successfully'
+        );
+    }
+
+    public function newTransactionApi(Request $request) {
+
+        DB::beginTransaction();
+
+        try {
+            $validator = Validator::make($request->all(), [
+                'amount' => 'required|numeric|min:1',
+                'account_no' => 'required',
+                'phone' => 'required',
+                'senderphone' => 'required',
+                'sendername' => 'required',
+                // 'code' => 'required',
+                'trans' => 'required', // 'CASH_OUT', 'CASH_IN'
+            ]);
+
+            if ($validator->fails()) {
+                return $this->sendError(
+                    $validator->errors()->first()
+                );
+            }
+
+            if ($request->trans == 'CASH_OUT') {
+
+                $payload = $this->payloadService
+                    ->buildWithdrawalPayload([
+                        'amount' => $request->amount,
+                        'senderaccount' => $request->account_no,
+                        'senderphone' => $request->phone,
+                    ]);
+
+                $response = $this->ecobankService->post('withdrawal', $payload);
+            } else {
+                $payload = $this->payloadService
+                    ->buildCashInPayload([
+                        'amount' => $request->amount,
+                        'senderaccount' => $request->account_no,
+                        'senderphone' => $request->phone,
+                        'thirdpartyphonenumber' => $request->senderphone,
+                        'sendername' => $request->sendername,
+                        'narration' => 'Cash In Transaction',
+                    ]);
+
+                $response = $this->ecobankService->post('cashin', $payload);
+            }
+
+            if (
+                !data_get($response, 'success')
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Transaction failed'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                DB::rollBack();
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Transaction failed'
+                    )
+                );
+            }
+
+            $amount = number_format((float) $request->amount, 2, '.', '');
+
+            // Activity log
+            LogModel::create([
+                // 'user_id' => $agent->id,
+                'logable_type' => 'App\Models\Transaction',
+                // 'logable_id' => $transaction->id,
+                'about' => 'API transaction type('.$request->trans.') '.$amount.', '.$request->account_no,
+            ]);
+
+            DB::commit();
+
+            $phone = $request->phone;
+            $name = $request->sendername ?? 'Customer';
+            $amount = number_format((float)$request->amount, 2);
+            $type = $request->trans === 'CASH_OUT' ? 'Withdrawal' : 'Deposit';
+
+            $msg = "Hello {$name}, your {$type} of GHS {$amount} was successful.";
+            Helpers::sendSMS($phone, $msg);
+
+            return $this->sendResponse(
+                [
+                    'payment' => new PaymentResource($payment),
+                    'ecobank' => $response['response']
+                ],
+                'Transaction successful'
+            );
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+
+            Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+
+    public function findAccountApi(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'account_number' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->sendError(
+                $validator->errors()->first()
+            );
+        }
+
+        try {
+            $payload =
+                $this->payloadService
+                    ->buildGetAccountPayload(
+                        $request->account_number
+                    );
+
+            $response =
+                $this->ecobankService->post(
+                    'getcustomerdetails',
+                    $payload
+                );
+
+            if (
+                !data_get($response, 'success')
+            ) {
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'message',
+                        'Failed to connect to Ecobank'
+                    )
+                );
+            }
+
+            if (
+                data_get(
+                    $response,
+                    'response.header.responsecode'
+                ) !== '000'
+            ) {
+
+                return $this->sendError(
+                    data_get(
+                        $response,
+                        'response.header.responsemessage',
+                        'Unable to retrieve account'
+                    )
+                );
+            }
+
+            return $this->sendResponse(
+                [
+                    'ecobank' => data_get(
+                        $response,
+                        'response'
+                    )
+                ],
+                'Account retrieved successfully'
+            );
+
+        } catch (\Throwable $e) {
+
+            Log::error($e);
+
+            return $this->sendError(
+                $e->getMessage()
+            );
+        }
+    }
+
+    ///// end api
+
+
+    
+
     public function openAccount(Request $request)
     {
         DB::beginTransaction();

@@ -188,7 +188,7 @@ class AccountAPIController extends AppBaseController
             // \Log::info(data_get($response, 'response'));
 
             return $this->sendResponse([
-                'verification_id' => $verification->id,
+                'verification_id' => 0,
             ], 'Card verified successfully');
 
         } catch (\Throwable $e) {
@@ -243,7 +243,7 @@ class AccountAPIController extends AppBaseController
 
             if (!file_exists($selfiePath)) {
                 return $this->sendError(
-                    'Saved selfie not found'
+                    'Selfie verification not done yet'
                 );
             }
 
@@ -427,7 +427,7 @@ class AccountAPIController extends AppBaseController
 
             return $this->sendResponse(
                 [
-                    'account' => $accountUser,
+                    // 'account' => $accountUser,
                     'ecobank' => $response['response'],
                 ],
                 'Account created successfully'
@@ -589,9 +589,20 @@ class AccountAPIController extends AppBaseController
 
             DB::commit();
 
+            // return $this->sendResponse(
+            //     $accountData,
+            //     'Account linked successfully'
+            // );
             return $this->sendResponse(
-                new AccountUserResource($accountUser),
-                'Account linked successfully'
+                [
+                    'ecobank' => data_get(
+                        $response,
+                        'response'
+                    ),
+    
+                    // 'local_account' => $accountUser,
+                ],
+                'Account retrieved successfully'
             );
 
         } catch (\Throwable $e) {
@@ -706,7 +717,7 @@ class AccountAPIController extends AppBaseController
                     'response'
                 ),
 
-                'local_account' => $accountUser,
+                // 'local_account' => $accountUser,
             ],
             'Account retrieved successfully'
         );

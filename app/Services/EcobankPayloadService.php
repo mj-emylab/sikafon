@@ -22,7 +22,6 @@ class EcobankPayloadService
         $this->sourceIP = config('services.ecobank.source_ip');
         $this->agentCode = config('services.ecobank.agent_code');
         $this->pin = config('services.ecobank.pin');
-        // $this->pin = "ECOa7d931765caa4601#af997dd0f327f602!";
         $this->sourceCode = config('services.ecobank.source_code');
         $this->channel = config('services.ecobank.channel');
         $this->currency = config('services.ecobank.currency');
@@ -464,21 +463,6 @@ class EcobankPayloadService
         ];
     }
 
-
-
-    // balance from ecobank
-
-    // get acct number for newly opened from ecobank
-
-    // transactions from ecobank
-
-    // agent transactions from ecobank
-
-    // transaction status from ecobank
-
-    // momo
-
-    // remitance
 
 
     

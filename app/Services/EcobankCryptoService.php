@@ -6,12 +6,6 @@ class EcobankCryptoService
 {
     protected string $key;
 
-    // public function __construct()
-    // {
-    //     // 32 bytes key
-    //     $this->key = hex2bin(env('ECOBANK_AES_KEY'));
-    // }
-
     public function __construct()
     {
         $key = env('ECOBANK_AES_KEY');
